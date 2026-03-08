@@ -13,7 +13,10 @@ Am working on Builds for Windows and Mac
 
 # Map Legend:
 * "@" is the Player.
-* "%" is an Enemy.
+* "D" is a Demon.
+* "g" is a Goblin.
+* "o" is an Orc.
+* "V" is a Villager.
 * "░" is an Empty Space.
 * "█" is an unmoveable wall.
 * "/" is a Dagger.
@@ -24,3 +27,4 @@ Am working on Builds for Windows and Mac
 * "*" is Cobblestone
 * "T" Forest Tiles
 * "H" is a Town
+

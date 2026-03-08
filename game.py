@@ -72,7 +72,8 @@ color_map = {
     grass: (20, 120, 20), #Grass
     tree: (0, 140, 0), #Tree
     stone: (120, 120, 120), #Stone
-    town: (255, 255, 255) #Town
+    town: (255, 255, 255), #Town
+    "V": (140, 220, 140) #Villagers
 }
 
 def get_color(char):
@@ -403,8 +404,8 @@ class GameMap:
 
                 char = self.grid[y][x]
 
-                # If visible, check for entity on tile
-                if self.visible[y][x]:
+                # Draw entities if visible OR fog disabled
+                if self.visible[y][x] or not self.fog_enabled:
                     for entity in self.entities:
                         if entity.x == x and entity.y == y:
                             char = entity.token
@@ -759,7 +760,7 @@ def Combat():
             continue
 
         # Only process enemies
-        if not entity.NPC:
+        if not entity.NPC or entity.name== "Villager":
             continue
 
         if entity.HP <= 0:
@@ -852,6 +853,18 @@ def Try_Move(character, dx, dy):
             town_map = GameMap("Town", grid=town_grid)
             town_map.fog_enabled = False
 
+            for _ in range(random.randint(4, 7)):
+                
+                while True:
+                    x = random.randint(1, town_map.width - 2)
+                    y = random.randint(1, town_map.height - 2)
+
+                    if town_grid[y][x] in [grass, stone]:
+                        villager = Character("V", "Villager", x, y, True, 0, 0, 5, 0)
+                        town_map.add_entity(villager)
+                        break
+
+
             spawn_x, spawn_y = find_safe_spawn(town_grid)
             town_map.enter_map(Player, spawn_x, spawn_y)
 
@@ -864,6 +877,7 @@ def Foe_Move():
     for entity in current_map.entities:
 
         if isinstance(entity, Character) and entity.NPC:
+
 
             move = random.choice([(0, -1),(0, 1), (-1, 0), (1,0)])
             Try_Move(entity, *move)
