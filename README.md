@@ -23,3 +23,4 @@ Am working on Builds for Windows and Mac
 * ">" is a Door.
 * "*" is Cobblestone
 * "T" Forest Tiles
+* "H" is a Town

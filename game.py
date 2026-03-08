@@ -7,7 +7,7 @@ import os
 import re
 import time
 import sys
-import pygame
+import pygame # type: ignore
 
 #====================
 #Pygame Initalization
@@ -52,6 +52,7 @@ door = ">"
 grass = "."
 tree = "T"
 stone = "*"
+town = "H"
 
 #In Colour Map we asign colours to each of the Tiles using ANSI codes this helps with making the game look better
 color_map = {
@@ -70,7 +71,8 @@ color_map = {
     "|": (255, 140, 0), #Torch
     grass: (20, 120, 20), #Grass
     tree: (0, 140, 0), #Tree
-    stone: (120, 120, 120) #Stone
+    stone: (120, 120, 120), #Stone
+    town: (255, 255, 255) #Town
 }
 
 def get_color(char):
@@ -570,6 +572,68 @@ def generate_overworld():
     return grid
 
 
+def generate_town(width=55, height=20):
+
+    grid = [[grass for _ in range(width)] for _ in range(height)]
+
+    road_y = height // 2
+    for y in range(road_y - 1, road_y + 2):
+        for x in range(width):
+            grid[y][x] = stone
+
+    road_x = width // 2 
+    for x in range(road_x - 1, road_x + 2):
+        for y in range(height):
+            grid[y][x] = stone
+
+    house_count = random.randint(5, 8)
+    placed = 0
+    attempts = 0
+
+    while placed < house_count and attempts < 100:
+        attempts += 1
+
+        w = random.randint(4, 8)
+        h = random.randint(4, 6)
+
+        x = random.randint(2, width - w - 2)
+        y = random.randint(2, height - h - 2)
+
+        # Check if house touches road
+        intersects_road = False
+        for i in range(x - 1, x + w + 1):
+            for j in range(y - 1, y + h + 1):
+                if grid[j][i] == stone:
+                    intersects_road = True
+
+        if intersects_road:
+            continue
+
+        # Build house
+        for i in range(x, x + w):
+            for j in range(y, y + h):
+
+                if i == x or i == x + w - 1 or j == y or j == y + h - 1:
+                    grid[j][i] = wall
+                else:
+                    grid[j][i] = empty
+
+        # Door
+        door_x = x + w // 2
+        grid[y + h - 1][door_x] = stone
+
+        placed += 1
+
+    for _ in range(40):
+
+        x = random.randint(1, width - 2)
+        y = random.randint(1, height - 2)
+
+        if grid[y][x] == grass:
+            grid[y][x] = tree
+
+    return grid
+
 
 #Here we initilise the two current characters with their attrbutes
 Player = Character("@", "Player", 7, 13, False, 5, 5, 5, 0)
@@ -592,6 +656,8 @@ Overworld.add_door(10, 10)
 Overworld.add_door(40, 8)
 Overworld.add_door(25, 15)
 Overworld.surround_doors_with_stone()
+Overworld.grid[5][20] = town
+Overworld.grid[14][35] = town
 current_map = Overworld
 
 
@@ -750,33 +816,46 @@ def Try_Move(character, dx, dy):
 
 
     #This handles Player and Door Interation allowing for Players to move between Levels, and if needed Generate New Levels
-    if tile == door and character == Player:
+    if character == Player:
+        if tile == door:
 
-        # From Overworld → Dungeon
-        if current_map.name == "overworld":
-            dungeon_level = 1
+            if current_map.name == "overworld":
 
-            new_floor = GameMap(
-                f"Dungeon {dungeon_level}",
-                width=55,
-                height=20
-            )
+                dungeon_level = 1
 
-            new_floor.enter_map(Player, 1, 1)
-            add_message(f"{Player.name} decends into darkness...")
+                new_floor = GameMap(
+                    f"Dungeon {dungeon_level}",
+                    width=55,
+                    height=20
+                )
 
-        # From Dungeon → Next Dungeon
-        elif current_map.name.startswith("Dungeon"):
-            dungeon_level += 1
+                new_floor.enter_map(Player, 1, 1)
+                add_message(f"{Player.name} decends into darkness...")
 
-            new_floor = GameMap(
-                f"Dungeon {dungeon_level}",
-                width=55,
-                height=20
-            )
+            elif current_map.name.startswith("Dungeon"):
 
-            new_floor.enter_map(Player, 1, 1)
-            add_message(f"{Player.name} decends further...")
+                dungeon_level += 1
+
+                new_floor = GameMap(
+                    f"Dungeon {dungeon_level}",
+                    width = 55,
+                    height=20
+                )
+
+                new_floor.enter_map(Player, 1, 1)
+                add_message(f"{Player.name} decends deeper...")
+
+        elif tile == town:
+
+            town_grid = generate_town()
+
+            town_map = GameMap("Town", grid=town_grid)
+            town_map.fog_enabled = False
+
+            spawn_x, spawn_y = find_safe_spawn(town_grid)
+            town_map.enter_map(Player, spawn_x, spawn_y)
+
+            add_message("You have arrived in a village")
 
 
 #This is to move the NPC
@@ -929,7 +1008,8 @@ def Game_Loop():
                 elif confirmation_window:
 
                     if event.key == pygame.K_y:
-                        Overworld.enter_map(Player, 5, 5)
+                        spawn_x, spawn_y = find_safe_spawn(overworld_grid)
+                        Overworld.enter_map(Player, spawn_x, spawn_y)
                         dungeon_level = 0
                         confirmation_window = False
                         add_message("You return to the surface.")
