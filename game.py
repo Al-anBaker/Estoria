@@ -18,7 +18,13 @@ TILE_SIZE = 16
 MOVE_DELAY = 120
 last_move_time = 0
 
-font = pygame.font.Font("Perfect DOS VGA 437.ttf", TILE_SIZE)
+def resource_path(relative_path):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+font_path = resource_path("Perfect DOS VGA 437.ttf")
+font = pygame.font.Font(font_path, TILE_SIZE)
 
 clock = pygame.time.Clock()
 
@@ -33,13 +39,6 @@ screen = pygame.display.set_mode(
 pygame.display.set_caption("ASCII DUNGEION")
 
 
-def resource_path(relative_path):
-    if hasattr(sys, '_MEIPASS'):
-        return os.path.join(sys._MEIPASS, relative_path)
-    return os.path.join(os.path.abspath("."), relative_path)
-
-font_path = resource_path("Perfect DOS VGA 437.ttf")
-font = pygame.font.Font(font_path, TILE_SIZE)
 
 
 
