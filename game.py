@@ -48,7 +48,7 @@ tree = "T"
 stone = "*"
 town = "H"
 
-#In Colour Map we asign colours to each of the Tiles using ANSI codes this helps with making the game look better
+#In Colour Map we asign colours to each of the Tiles using RGB Values this helps with making the game look better
 color_map = {
     wall: (200, 200, 200),
     empty: (40, 40, 40),
@@ -158,7 +158,7 @@ class Character():
     #Adds an Item to the Inventory and Informs the Player
     def pickup_item(self, item):
         self.inventory.append(item)
-        add_message(f"You have picked up an: {item.name}")
+        add_message(f"You have picked up a: {item.name}")
 
     #When in the inventory this add the Item from the Inventory to be a held item
     def equip_item(self, item):
@@ -760,7 +760,7 @@ def Combat():
             continue
 
         # Only process enemies
-        if not entity.NPC or entity.name== "Villager":
+        if not entity.NPC or entity.name == "Villager":
             continue
 
         if entity.HP <= 0:
@@ -775,13 +775,14 @@ def Combat():
                 add_message(f"You have attacked {entity.name} for {damage} Damage!")
 
             if entity.ATK > Player.DEF:
-                Player.HP -= 1
-                add_message("You have been Attacked")
+                damage = entity.ATK - Player.DEF
+                Player.HP -= damage
+                add_message(f"Attacked for {damage} by {entity.name}!")
 
             if entity.HP <= 0:
                 Player.GOLD += entity.GOLD
                 current_map.entities.remove(entity)
-                add_message(f"{entity.name} Defeated")
+                add_message(f"{entity.name} Defeated You have earned {entity.GOLD} Gold!")
 
             if Player.HP <= 0:
                 game_state = "gameover"
