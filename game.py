@@ -39,10 +39,6 @@ screen = pygame.display.set_mode(
 pygame.display.set_caption("ASCII DUNGEION")
 
 
-
-
-
-
 #Map Tile sets, these are the token for static Tiles on the map
 water = "~"
 empty = chr(176)
@@ -103,7 +99,7 @@ FOREST_MOVE_DELAY = 220
 #Object Classes
 #==============
 class Item():
-    def __init__(self, token, name, x, y, item_type, atk=0, defn=0, hp=0, active=True, vision=0):
+    def __init__(self, token, name, x, y, value, item_type, atk=0, defn=0, hp=0, active=True, vision=0):
 
         #How the item look on the screen
         self.token = token
@@ -114,6 +110,8 @@ class Item():
         #Spawn Coordinates
         self.x = x
         self.y = y
+
+        self.value = value
 
         #What Type of Item is it (Weapon, Armour, Equipment)
         self.type = item_type
@@ -264,13 +262,13 @@ class GameMap:
         roll = random.random()
 
         if roll < 0.3:
-            item = Item("!", "Health Potion", x, y, item_type="potion", hp=5)
+            item = Item("!", "Health Potion", x, y, 10, item_type="potion", hp=5)
         elif roll < 0.7:
-            item = Item("/", "Dagger", x, y, item_type="weapon", atk=2)
+            item = Item("/", "Dagger", x, y, 5, item_type="weapon", atk=2)
         elif roll < 0.9:
-            item = Item("|", "Torch", x, y, item_type="misc", vision=2)
+            item = Item("|", "Torch", x, y, 10, item_type="misc", vision=2)
         else:
-            item = Item("[", "Leather Armour", x, y, item_type="armour", defn=2)
+            item = Item("[", "Leather Armour", x, y, 5, item_type="armour", defn=2)
 
         self.entities.append(item)
 
