@@ -1,4 +1,3 @@
-
 #=======
 #IMPORTS
 #=======
@@ -36,7 +35,7 @@ screen = pygame.display.set_mode(
     (MAP_PIXEL_WIDTH, MAP_PIXEL_HEIGHT + UI_HEIGHT)
 )
 
-pygame.display.set_caption("ASCII DUNGEION")
+pygame.display.set_caption("===ASCII DUNGEION===")
 
 
 #Map Tile sets, these are the token for static Tiles on the map
@@ -311,11 +310,11 @@ class GameMap:
             roll = random.random()
 
             if roll < 0.6:
-                foe = Character("g", "Goblin", x, y, True, 2, 1, 4, 1)
+                foe = Character("g", "Goblin", x, y, True, 2, 1, 10, 1)
             elif roll < 0.9:
-                foe = Character("o", "Orc", x, y, True, 3, 2, 6, 3)
+                foe = Character("o", "Orc", x, y, True, 3, 2, 15, 3)
             else:
-                foe = Character("D", "Demon", x, y, True, 5, 3, 10, 5)
+                foe = Character("D", "Demon", x, y, True, 5, 3, 20, 5)
 
             self.add_entity(foe)
     
@@ -523,7 +522,7 @@ class GameMap:
         self.rooms = rooms
         return grid
     
-    def add_forest_patches(self, count=8, min_size=3, max_size=6):
+    def add_forest_patches(self, count=8, min_size=3, max_size=4):
         for _ in range(count):
             width = random.randint(min_size, max_size)
             height = random.randint(min_size, max_size)
@@ -565,7 +564,7 @@ def generate_overworld():
 
         for y in range(wy-2, wy+3):
             for x in range(wx-3, wx+4):
-                if random.random() < 0.7:
+                if random.random() < 0.4:
                     grid[y][x] = water
     return grid
 
@@ -618,7 +617,7 @@ def generate_town(width=55, height=20):
 
         # Door
         door_x = x + w // 2
-        grid[y + h - 1][door_x] = stone
+        grid[y + h - 1][door_x] = empty
 
         placed += 1
 
@@ -643,6 +642,10 @@ def find_safe_spawn(grid):
                 return x, y
     return 1, 1  # fallback
 
+
+#==================
+#Generate Overworld
+#==================
 overworld_grid = generate_overworld()
 Overworld = GameMap("Overworld", overworld_grid)
 Overworld.fog_enabled = False
@@ -767,8 +770,9 @@ def Combat():
         if abs(Player.x - entity.x) + abs(Player.y - entity.y) == 1:
 
             if Player.ATK > entity.DEF:
-                entity.HP -= 1
-                add_message(f"You have attacked: {entity.name}")
+                damage = Player.ATK - entity.DEF
+                entity.HP -= damage
+                add_message(f"You have attacked {entity.name} for {damage} Damage!")
 
             if entity.ATK > Player.DEF:
                 Player.HP -= 1
@@ -883,7 +887,7 @@ def Draw_Main_Menu():
     screen.fill((0, 0, 0))
 
     # Title
-    title = font.render("ASCII DUNGEON", True, (255,255,255))
+    title = font.render("===ASCII DUNGEON===", True, (255,255,255))
     title_rect = title.get_rect(center=(MAP_PIXEL_WIDTH // 2, 80))
     screen.blit(title, title_rect)
 
