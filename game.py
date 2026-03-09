@@ -644,7 +644,7 @@ def find_safe_spawn(grid):
     return 1, 1  # fallback
 
 overworld_grid = generate_overworld()
-Overworld = GameMap("overworld", overworld_grid)
+Overworld = GameMap("Overworld", overworld_grid)
 Overworld.fog_enabled = False
 Overworld.add_forest_patches()
 spawn_x, spawn_y = find_safe_spawn(overworld_grid)
@@ -722,7 +722,7 @@ def Draw_Game():
         2
     )
 
-    stats_text = f"{Player.name} | ATK: {Player.ATK} | DEF: {Player.DEF} | HP: {Player.HP} | GOLD: {Player.GOLD}"
+    stats_text = f"{Player.name} | ATK: {Player.ATK} | DEF: {Player.DEF} | HP: {Player.HP} | GOLD: {Player.GOLD} | Current Level: {current_map.name}"
     stats_surface = font.render(stats_text, True, (255, 255, 255))
     screen.blit(stats_surface, (10, MAP_PIXEL_HEIGHT + 5))
 
@@ -817,7 +817,7 @@ def Try_Move(character, dx, dy):
     if character == Player:
         if tile == door:
 
-            if current_map.name == "overworld":
+            if current_map.name == "Overworld":
 
                 dungeon_level = 1
 
