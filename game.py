@@ -7,7 +7,7 @@ import os
 import re
 import time
 import sys
-import pygame # type: ignore
+import pygame
 
 #====================
 #Pygame Initalization
