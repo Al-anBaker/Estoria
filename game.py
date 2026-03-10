@@ -3,8 +3,6 @@
 #=======
 import random
 import os
-import re
-import time
 import sys
 import pygame
 
@@ -1040,7 +1038,7 @@ def Game_Loop():
                     elif event.key == pygame.K_r:
                         confirmation_window = True
 
-        if not inventory_open or not confirmation_window:
+        if not inventory_open and not confirmation_window:
             keys = pygame.key.get_pressed()
 
             move_x = 0
