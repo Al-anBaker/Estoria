@@ -66,7 +66,8 @@ color_map = {
     stone: (120, 120, 120), #Stone
     town: (255, 255, 255), #Town
     "v": (140, 220, 140), #Villagers
-    "S": (255, 215, 0) #Shop Clerk
+    "S": (255, 215, 0), #Shop Clerk
+    "l": (165, 42, 42) #Stick
 }
 
 def get_color(char):
@@ -126,6 +127,7 @@ class Item():
         self.active = active
 
 
+
 class Character():
     #Character Vars
     def __init__(self, token, name, x, y, NPC, ATK, DEF, HP, GOLD, current_map=None):
@@ -157,6 +159,9 @@ class Character():
         self.misc = None
 
         self.shopkeeper = False
+
+        self.exp = 0
+        self.level = 1
 
     #Adds an Item to the Inventory and Informs the Player
     def pickup_item(self, item):
@@ -316,11 +321,11 @@ class GameMap:
             roll = random.random()
 
             if roll < 0.6:
-                foe = Character("g", "Goblin", x, y, True, 2, 1, 10, 1)
+                foe = Character("g", "Goblin", x, y, True, 2, 1, 10, 5, exp=3)
             elif roll < 0.9:
-                foe = Character("o", "Orc", x, y, True, 3, 2, 15, 3)
+                foe = Character("o", "Orc", x, y, True, 3, 2, 15, 3, exp=4)
             else:
-                foe = Character("D", "Demon", x, y, True, 5, 3, 20, 5)
+                foe = Character("D", "Demon", x, y, True, 5, 3, 20, 5, exp=10)
 
             self.add_entity(foe)
     
@@ -638,8 +643,8 @@ def generate_town(width=55, height=20):
     return grid
 
 
-#Here we initilise the two current characters with their attrbutes
-Player = Character("@", "Player", 7, 13, False, 5, 5, 5, 20)
+#Here we initilise the Player with their attrbutes
+Player = Character("@", "Player", 7, 13, False, 3, 2, 20, 0)
 
 def find_safe_spawn(grid):
     for y in range(len(grid)):
@@ -665,7 +670,9 @@ Overworld.add_door(25, 15)
 Overworld.surround_doors_with_stone()
 Overworld.grid[5][20] = town
 Overworld.grid[14][35] = town
+stick = Item("l", "Stick", (Player.x + 1), (Player.y + 1), 1, item_type="weapon", atk=2)
 current_map = Overworld
+current_map.add_entity(stick)
 
 shop_inventory = [
     Item("}", "Platemail", 0, 0, 25, item_type="armour", defn=6),
@@ -737,7 +744,7 @@ def Draw_Game():
         2
     )
 
-    stats_text = f"{Player.name} | ATK: {Player.ATK} | DEF: {Player.DEF} | HP: {Player.HP} | GOLD: {Player.GOLD} | Current Level: {current_map.name}"
+    stats_text = f"{Player.name} | LEVEL: {Player.level} | ATK: {Player.ATK} | DEF: {Player.DEF} | HP: {Player.HP} | GOLD: {Player.GOLD} | XP: {Player.exp}| Current Level: {current_map.name}"
     stats_surface = font.render(stats_text, True, (255, 255, 255))
     screen.blit(stats_surface, (10, MAP_PIXEL_HEIGHT + 5))
 
@@ -750,8 +757,6 @@ def Draw_Game():
         screen.blit(text_surface, (log_x, log_y + i * 20))
 
     pygame.display.flip()
-
-
 
 def add_message(text):
     global message_log
@@ -879,13 +884,12 @@ def Try_Move(character, dx, dy):
                         town_map.add_entity(villager)
                         break
 
-            shopkeeper = Character("S", "Shopkeeper", 25, 10, True, 0, 0, 5, 0)
+            shopkeeper = Character("S", "Shopkeeper", 27, 10, True, 0, 0, 5, 0)
             shopkeeper.shopkeeper = True
 
             town_map.add_entity(shopkeeper)
 
-            spawn_x, spawn_y = find_safe_spawn(town_grid)
-            town_map.enter_map(Player, spawn_x, spawn_y)
+            town_map.enter_map(Player, 0, 10)
 
             add_message("You have arrived in a village")
 
@@ -942,8 +946,6 @@ def Draw_Game_Over():
 
     pygame.display.flip()
 
-    
-
 def Draw_Shop():
 
     screen.fill((0, 0, 0))
@@ -984,11 +986,10 @@ def Draw_Shop():
         text_surface = font.render(msg, True, (180, 180, 180))
         screen.blit(text_surface, (10, log_y + i * 20))
 
-    help_text = font.render("(Left and Right) Switch Menus | (Up and Down) Select items | ENTER Buy/Sell | ESC Exit", True, (150, 150, 150))
+    help_text = font.render("(Left and Right): Switch Menus | (Up and Down): Select items | ENTER: Buy/Sell | Q: Exit", True, (150, 150, 150))
     screen.blit(help_text, (10, MAP_PIXEL_HEIGHT - 20))
 
     pygame.display.flip()
-
 
 def buy_item(index):
     
@@ -997,7 +998,6 @@ def buy_item(index):
     if Player.GOLD >= item.value:
         Player.GOLD -= item.value
         Player.pickup_item(item)
-
         add_message(f"Brought {item.name}")
 
     else:
@@ -1007,11 +1007,10 @@ def sell_item(index):
     item = Player.inventory[index]
 
     Player.GOLD += item.value
+    shop_inventory.append(item)
     Player.remove_item(item)
 
     add_message(f"Sold: {item.name}")
-
-
 
 #Here we have the main Game Loop
 def Game_Loop():
@@ -1045,6 +1044,9 @@ def Game_Loop():
 
                         Player.name = player_name_input
                         Player.HP = 20
+                        spawn_x, spawn_y = find_safe_spawn(overworld_grid)
+                        Overworld.enter_map(Player, spawn_x, spawn_y)
+                        current_map = Overworld
                         game_state = "game"
 
                     elif event.key == pygame.K_BACKSPACE:
@@ -1076,6 +1078,10 @@ def Game_Loop():
                         Player.weapon = None
                         Player.armour = None
                         Player.misc = None
+                        Player.ATK = 3
+                        Player.DEF = 2
+                        Player.exp = 0
+                        Player.level = 1
 
                         game_state = "menu"
 
@@ -1089,7 +1095,7 @@ def Game_Loop():
                     running = False
                 
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
+                    if event.key == pygame.K_q:
                         shop_open = False
                         game_state = "game"
                             
@@ -1157,7 +1163,10 @@ def Game_Loop():
                                 Player.use_potion(item)
                                 Player.inventory.remove(item)
                             else:
-                                Player.equip_item(item)
+                                if item in [Player.armour, Player.weapon, Player.misc]:
+                                    Player.unequip_item(item)
+                                else:
+                                    Player.equip_item(item)
 
                 elif confirmation_window:
 
@@ -1199,8 +1208,6 @@ def Game_Loop():
                 move_x = -1
             elif keys[pygame.K_d] or keys[pygame.K_RIGHT]:
                 move_x = 1
-            
-
 
             current_time = pygame.time.get_ticks()
 
