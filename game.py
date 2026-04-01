@@ -44,7 +44,7 @@ door = ">"
 grass = "."
 tree = "T"
 stone = "*"
-town = "H"
+town = "V"
 
 #In Colour Map we asign colours to each of the Tiles using RGB Values this helps with making the game look better
 color_map = {
@@ -65,7 +65,8 @@ color_map = {
     tree: (0, 140, 0), #Tree
     stone: (120, 120, 120), #Stone
     town: (255, 255, 255), #Town
-    "V": (140, 220, 140) #Villagers
+    "v": (140, 220, 140), #Villagers
+    "S": (255, 215, 0) #Shop Clerk
 }
 
 def get_color(char):
@@ -90,7 +91,9 @@ OVERWORLD_WIDTH = 55
 OVERWORLD_HEIGHT = 20
 confirmation_window = False
 FOREST_MOVE_DELAY = 220
-
+shop_selected_index = 0
+shop_panel = "shop" # "shop" or "player"
+shop_open = False
 
 #==============
 #Object Classes
@@ -153,6 +156,8 @@ class Character():
         self.armour = None
         self.misc = None
 
+        self.shopkeeper = False
+
     #Adds an Item to the Inventory and Informs the Player
     def pickup_item(self, item):
         self.inventory.append(item)
@@ -200,6 +205,9 @@ class Character():
         add_message("Used Potion")
         if self.HP > 20:
             self.HP = 20
+
+    def remove_item(self, item):
+        self.inventory.remove(item)
 
 #GameMap is an Object that holds the current Maps name, grid and its dimensions, it is also respoonsible in adding doors and entities
 class GameMap:
@@ -631,7 +639,7 @@ def generate_town(width=55, height=20):
 
 
 #Here we initilise the two current characters with their attrbutes
-Player = Character("@", "Player", 7, 13, False, 5, 5, 5, 0)
+Player = Character("@", "Player", 7, 13, False, 5, 5, 5, 20)
 
 def find_safe_spawn(grid):
     for y in range(len(grid)):
@@ -658,6 +666,12 @@ Overworld.surround_doors_with_stone()
 Overworld.grid[5][20] = town
 Overworld.grid[14][35] = town
 current_map = Overworld
+
+shop_inventory = [
+    Item("}", "Platemail", 0, 0, 25, item_type="armour", defn=6),
+    Item(">", "Spear", 0, 0, 20, item_type="weapon", atk=5),
+    Item("!!", "Greater Health Potion", 0, 0, 10, item_type="potion", hp=10)
+]
 
 
 #Draw_Game prints the Map onto the window, we do this by interating through both the x axis and y axis 
@@ -758,7 +772,7 @@ def Combat():
             continue
 
         # Only process enemies
-        if not entity.NPC or entity.name == "Villager":
+        if not entity.NPC or entity.name == "Villager" or entity.name == "Shopkeeper":
             continue
 
         if entity.HP <= 0:
@@ -850,6 +864,7 @@ def Try_Move(character, dx, dy):
 
             town_grid = generate_town()
 
+
             town_map = GameMap("Town", grid=town_grid)
             town_map.fog_enabled = False
 
@@ -860,10 +875,14 @@ def Try_Move(character, dx, dy):
                     y = random.randint(1, town_map.height - 2)
 
                     if town_grid[y][x] in [grass, stone]:
-                        villager = Character("V", "Villager", x, y, True, 0, 0, 5, 0)
+                        villager = Character("v", "Villager", x, y, True, 0, 0, 5, 0)
                         town_map.add_entity(villager)
                         break
 
+            shopkeeper = Character("S", "Shopkeeper", 25, 10, True, 0, 0, 5, 0)
+            shopkeeper.shopkeeper = True
+
+            town_map.add_entity(shopkeeper)
 
             spawn_x, spawn_y = find_safe_spawn(town_grid)
             town_map.enter_map(Player, spawn_x, spawn_y)
@@ -878,9 +897,11 @@ def Foe_Move():
 
         if isinstance(entity, Character) and entity.NPC:
 
-
-            move = random.choice([(0, -1),(0, 1), (-1, 0), (1,0)])
-            Try_Move(entity, *move)
+            if not entity.shopkeeper:
+                move = random.choice([(0, -1),(0, 1), (-1, 0), (1,0)])
+                Try_Move(entity, *move)
+            else:
+                continue
 
 def Draw_Main_Menu():
     screen.fill((0, 0, 0))
@@ -921,12 +942,85 @@ def Draw_Game_Over():
 
     pygame.display.flip()
 
+    
+
+def Draw_Shop():
+
+    screen.fill((0, 0, 0))
+
+    # Titles
+    title = font.render("==SHOP==", True, (255, 255, 255))
+    screen.blit(title, (10, 10))
+
+    gold_text = font.render(f"Gold: {Player.GOLD}", True, (255, 215, 0))
+    screen.blit(gold_text, (10,30))
+
+    left_x = 20
+    right_x = MAP_PIXEL_WIDTH // 2 + 20
+    y_start = 90
+
+    shop_title_color = (255, 255, 255) if shop_panel == "shop" else (180, 180, 180)
+    shop_title = font.render("SHOP", True, shop_title_color)
+    screen.blit(shop_title, (left_x, 50))
+
+    for i, item in enumerate(shop_inventory):
+        color = (255, 255, 0) if (shop_panel == "shop" and i == shop_selected_index) else (200, 200, 200)
+        text = f"{item.name} - {item.value}g"
+        line = font.render(text, True, color)
+        screen.blit(line, (left_x, y_start + i * 20))
+
+    player_title_color = (255, 255, 255) if shop_panel == "player" else (180, 180, 180)
+    player_title = font.render("INVENTORY", True, player_title_color)
+    screen.blit(player_title, (right_x, 50))
+
+    for i, item in enumerate(Player.inventory):
+        color = (255, 255, 0) if (shop_panel == "player" and i == shop_selected_index) else (200, 200, 200)
+        text = f"{item.name} (+{item.value}g)"
+        line = font.render(text, True, color)
+        screen.blit(line, (right_x, y_start + i * 20))
+
+    log_y = MAP_PIXEL_HEIGHT - 60
+    for i, msg in enumerate(message_log):
+        text_surface = font.render(msg, True, (180, 180, 180))
+        screen.blit(text_surface, (10, log_y + i * 20))
+
+    help_text = font.render("(Left and Right) Switch Menus | (Up and Down) Select items | ENTER Buy/Sell | ESC Exit", True, (150, 150, 150))
+    screen.blit(help_text, (10, MAP_PIXEL_HEIGHT - 20))
+
+    pygame.display.flip()
+
+
+def buy_item(index):
+    
+    item = shop_inventory[index]
+
+    if Player.GOLD >= item.value:
+        Player.GOLD -= item.value
+        Player.pickup_item(item)
+
+        add_message(f"Brought {item.name}")
+
+    else:
+        add_message("Not enough gold")
+
+def sell_item(index):
+    item = Player.inventory[index]
+
+    Player.GOLD += item.value
+    Player.remove_item(item)
+
+    add_message(f"Sold: {item.name}")
+
+
+
 #Here we have the main Game Loop
 def Game_Loop():
     global playerLastMove, last_move_time
     global inventory_open, inventory_selected
     global game_state, player_name_input, Player
     global confirmation_window, dungeon_level
+    global shop_selected_index, shop_panel
+    global shop_open
 
     running = True
 
@@ -987,6 +1081,52 @@ def Game_Loop():
 
             Draw_Game_Over()
             continue
+ 
+        if game_state == "shop":
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        shop_open = False
+                        game_state = "game"
+                            
+                    elif event.key == pygame.K_LEFT:
+                        shop_panel = "shop"
+                        shop_selected_index = 0
+
+                    elif event.key == pygame.K_RIGHT:
+                        shop_panel = "player"
+                        shop_selected_index = 0
+
+                    elif event.key == pygame.K_UP:
+                        shop_selected_index = max(0, shop_selected_index - 1)
+
+                    elif event.key == pygame.K_DOWN:
+                        if shop_panel == "shop":
+                            shop_selected_index = min(len(shop_inventory) - 1, shop_selected_index + 1)
+                        else:
+                            shop_selected_index = min(len(Player.inventory) - 1, shop_selected_index + 1)
+
+                    elif event.key == pygame.K_RETURN:
+                                
+                        if shop_panel == "shop":
+                            if shop_inventory:
+                                buy_item(shop_selected_index)
+                                
+                        elif shop_panel == "player":
+                            if Player.inventory:
+                                item = Player.inventory[shop_selected_index]
+
+                                if item in [Player.weapon, Player.armour, Player.misc]:
+                                    add_message("Unequip item first!")
+                                else:
+                                    sell_item(shop_selected_index)
+                                    shop_selected_index = max(0, shop_selected_index - 1)
+            Draw_Shop()
+            continue
 
         # =====================
         # GAME STATE
@@ -1030,6 +1170,7 @@ def Game_Loop():
 
                     elif event.key == pygame.K_n or event.key == pygame.K_ESCAPE:
                         confirmation_window = False
+
                 else:
                     if event.key == pygame.K_q:
                         running = False
@@ -1037,8 +1178,14 @@ def Game_Loop():
                         inventory_open = True
                     elif event.key == pygame.K_r:
                         confirmation_window = True
+                    elif event.key == pygame.K_RETURN:
+                        for entity in current_map.entities:
+                            if isinstance(entity, Character) and entity.shopkeeper:
+                                if abs(Player.x - entity.x) + abs(Player.y - entity.y) == 1:
+                                    game_state = "shop"
+                                    break
 
-        if not inventory_open and not confirmation_window:
+        if not inventory_open and not confirmation_window and not shop_open:
             keys = pygame.key.get_pressed()
 
             move_x = 0
@@ -1052,6 +1199,8 @@ def Game_Loop():
                 move_x = -1
             elif keys[pygame.K_d] or keys[pygame.K_RIGHT]:
                 move_x = 1
+            
+
 
             current_time = pygame.time.get_ticks()
 
