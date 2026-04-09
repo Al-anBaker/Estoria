@@ -78,15 +78,14 @@ def get_color(char):
 #===============
 #Global Varibles
 #===============
-command = ""
 playerLastMove = True
-dungeon_level = 0
+dungeon_level = 0 #Tracks what floor of a Dungeon the Player is on
 inventory_open = False
 inventory_selected = 0
 message_log = []
 MAX_LOG_LINES = 2
 view_radius = 6
-game_state = "menu"
+game_state = "menu" #"menu" or "game" or "shop" or "stats"
 player_name_input =""
 OVERWORLD_WIDTH = 55
 OVERWORLD_HEIGHT = 20
@@ -95,6 +94,7 @@ FOREST_MOVE_DELAY = 220
 shop_selected_index = 0
 shop_panel = "shop" # "shop" or "player"
 shop_open = False
+stats_selected_index = 0
 
 #==============
 #Object Classes
@@ -673,6 +673,10 @@ stick = Item("l", "Stick", 2, 2, 1, item_type="weapon", atk=2)
 current_map = Overworld
 current_map.add_entity(stick)
 
+Player_Stats = [
+    f"Attack: {Player.ATK}", f"Defence: {Player.DEF}", f"Health: {Player.HP}"
+]
+
 shop_inventory = [
     Item("}", "Platemail", 0, 0, 25, item_type="armour", defn=6),
     Item(">", "Spear", 0, 0, 20, item_type="weapon", atk=5),
@@ -995,6 +999,39 @@ def Draw_Shop():
 
     pygame.display.flip()
 
+def Draw_Player_stats():
+    screen.fill((0, 0, 0))
+
+    title = font.render(f"==Player's: Stats==", True, (255, 255, 255))
+    screen.blit(title, (MAP_PIXEL_WIDTH // 2 - 80, 40))
+
+    left_x = 20
+#------------    
+#Player Stats
+    player_name = font.render(f"Name: {Player.name}", True, (255, 255, 255))
+    screen.blit(player_name, (left_x, 100))
+
+    player_gold = font.render(f"Gold: {Player.GOLD}", True, (255, 215, 0))
+    screen.blit(player_gold, (left_x, 120))
+
+    player_level = font.render(f"Level: {Player.level}", True, (200, 200, 200))
+    screen.blit(player_level, (left_x, 140))
+
+    player_exp = font.render(f"XP: {Player.exp}", True, (200, 200, 200))
+    screen.blit(player_exp, (left_x, 160))
+
+    for i, stat in enumerate(Player_Stats):
+        color = (255, 255, 0) if (i == stats_selected_index) else (200, 200, 200)
+        text = f"{stat}"
+        line = font.render(text, True, color)
+        screen.blit(line, (left_x + 20, 200 + i * 20))
+
+
+    help_text = font.render("(Up and Down): Select items | ENTER: Upgrade | Q: Exit", True, (150, 150, 150))
+    screen.blit(help_text, (10, MAP_PIXEL_HEIGHT - 20))
+
+    pygame.display.flip()
+
 def buy_item(index):
     
     item = shop_inventory[index]
@@ -1023,7 +1060,7 @@ def Game_Loop():
     global game_state, player_name_input, Player
     global confirmation_window, dungeon_level
     global shop_selected_index, shop_panel
-    global shop_open, current_map
+    global shop_open, current_map, stats_selected_index
 
     running = True
 
@@ -1138,6 +1175,27 @@ def Game_Loop():
             Draw_Shop()
             continue
 
+        if game_state == "stats":
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+                if event.type == pygame.KEYDOWN:
+
+                    if event.key == pygame.K_q:
+                        game_state = "game"
+
+                    elif event.key == pygame.K_UP:
+                        stats_selected_index = max(0, stats_selected_index -1)
+
+                    elif event.key == pygame.K_DOWN:
+                        stats_selected_index = min(len(Player_Stats) - 1, stats_selected_index + 1)
+ 
+                        
+            Draw_Player_stats()
+            continue
+
         # =====================
         # GAME STATE
         # =====================
@@ -1201,6 +1259,8 @@ def Game_Loop():
                         inventory_open = True
                     elif event.key == pygame.K_r:
                         confirmation_window = True
+                    elif event.key == pygame.K_l:
+                        game_state = "stats"
 
                                     
 

@@ -7,6 +7,8 @@ To enter a level from a tile just walk over it and the Player will be moved into
 
 To access the Shop Interface walk up to a shop keeper and press Enter/Return to open the menu
 
+L: Opens the Stats Screen
+
 
 Am working on Builds for Windows and Mac
 
