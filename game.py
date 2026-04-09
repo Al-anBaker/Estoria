@@ -285,7 +285,6 @@ class GameMap:
     #Here we handle Map Transition for the Player and make sure they spawn in a safe area
     def enter_map(self, player, x, y):
         global current_map
-        current_map = self
         if hasattr(self, "spawn_point") and self.spawn_point:
             player.x, player.y = self.spawn_point
         else:
@@ -321,11 +320,11 @@ class GameMap:
             roll = random.random()
 
             if roll < 0.6:
-                foe = Character("g", "Goblin", x, y, True, 2, 1, 10, 5, exp=3)
+                foe = Character("g", "Goblin", x, y, True, 2, 1, 10, 5)
             elif roll < 0.9:
-                foe = Character("o", "Orc", x, y, True, 3, 2, 15, 3, exp=4)
+                foe = Character("o", "Orc", x, y, True, 3, 2, 15, 3)
             else:
-                foe = Character("D", "Demon", x, y, True, 5, 3, 20, 5, exp=10)
+                foe = Character("D", "Demon", x, y, True, 5, 3, 20, 5)
 
             self.add_entity(foe)
     
@@ -670,7 +669,7 @@ Overworld.add_door(25, 15)
 Overworld.surround_doors_with_stone()
 Overworld.grid[5][20] = town
 Overworld.grid[14][35] = town
-stick = Item("l", "Stick", (Player.x + 1), (Player.y + 1), 1, item_type="weapon", atk=2)
+stick = Item("l", "Stick", 2, 2, 1, item_type="weapon", atk=2)
 current_map = Overworld
 current_map.add_entity(stick)
 
@@ -850,6 +849,7 @@ def Try_Move(character, dx, dy):
                 )
 
                 new_floor.enter_map(Player, 1, 1)
+                current_map = new_floor
                 add_message(f"{Player.name} decends into darkness...")
 
             elif current_map.name.startswith("Dungeon"):
@@ -863,6 +863,7 @@ def Try_Move(character, dx, dy):
                 )
 
                 new_floor.enter_map(Player, 1, 1)
+                current_map = new_floor
                 add_message(f"{Player.name} decends deeper...")
 
         elif tile == town:
@@ -870,7 +871,8 @@ def Try_Move(character, dx, dy):
             town_grid = generate_town()
 
 
-            town_map = GameMap("Town", grid=town_grid)
+            town_map = GameMap("Town", town_grid)
+            
             town_map.fog_enabled = False
 
             for _ in range(random.randint(4, 7)):
@@ -884,12 +886,14 @@ def Try_Move(character, dx, dy):
                         town_map.add_entity(villager)
                         break
 
-            shopkeeper = Character("S", "Shopkeeper", 27, 10, True, 0, 0, 5, 0)
+            shopkeeper = Character("S", "Shopkeeper", 27, 10, True, 1, 1, 5, 1)
             shopkeeper.shopkeeper = True
 
             town_map.add_entity(shopkeeper)
 
             town_map.enter_map(Player, 0, 10)
+            
+            current_map = town_map
 
             add_message("You have arrived in a village")
 
@@ -1019,7 +1023,7 @@ def Game_Loop():
     global game_state, player_name_input, Player
     global confirmation_window, dungeon_level
     global shop_selected_index, shop_panel
-    global shop_open
+    global shop_open, current_map
 
     running = True
 
@@ -1173,6 +1177,7 @@ def Game_Loop():
                     if event.key == pygame.K_y:
                         spawn_x, spawn_y = find_safe_spawn(overworld_grid)
                         Overworld.enter_map(Player, spawn_x, spawn_y)
+                        current_map = Overworld
                         dungeon_level = 0
                         confirmation_window = False
                         add_message("You return to the surface.")
@@ -1181,18 +1186,23 @@ def Game_Loop():
                         confirmation_window = False
 
                 else:
-                    if event.key == pygame.K_q:
+                    if event.key == pygame.K_RETURN:
+                        for entity in current_map.entities:
+                            if isinstance(entity, Character) and entity.shopkeeper:
+                                print("Shopkeepers position: ", entity.x, entity.y)
+                                if max(abs(Player.x - entity.x), abs(Player.y - entity.y)) <= 1:
+                                    print("Player next to Shopkeeper")
+                                    game_state = "shop"
+                                    shop_open = True
+                                    break
+                    elif event.key == pygame.K_q:
                         running = False
                     elif event.key == pygame.K_e:
                         inventory_open = True
                     elif event.key == pygame.K_r:
                         confirmation_window = True
-                    elif event.key == pygame.K_RETURN:
-                        for entity in current_map.entities:
-                            if isinstance(entity, Character) and entity.shopkeeper:
-                                if abs(Player.x - entity.x) + abs(Player.y - entity.y) == 1:
-                                    game_state = "shop"
-                                    break
+
+                                    
 
         if not inventory_open and not confirmation_window and not shop_open:
             keys = pygame.key.get_pressed()
@@ -1208,7 +1218,7 @@ def Game_Loop():
                 move_x = -1
             elif keys[pygame.K_d] or keys[pygame.K_RIGHT]:
                 move_x = 1
-
+            
             current_time = pygame.time.get_ticks()
 
             if move_x != 0 or move_y != 0:
