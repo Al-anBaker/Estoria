@@ -567,7 +567,7 @@ class GameMap:
                                 if self.grid[ny][nx] == grass:
                                     self.grid[ny][nx] = stone
 
-
+#Generates a tile map for the overworld
 def generate_overworld():
     grid = [[grass for _ in range(OVERWORLD_WIDTH)]
             for _ in range(OVERWORLD_HEIGHT)]
@@ -583,7 +583,7 @@ def generate_overworld():
                     grid[y][x] = water
     return grid
 
-
+#Generates a tile map for the Village
 def generate_town(width=55, height=20):
 
     grid = [[grass for _ in range(width)] for _ in range(height)]
@@ -650,6 +650,7 @@ def generate_town(width=55, height=20):
 #Here we initilise the Player with their attrbutes
 Player = Character("@", "Player", 7, 13, False, 3, 2, 20, 0, 0)
 
+#Finds a space spawn, used for Over World
 def find_safe_spawn(grid):
     for y in range(len(grid)):
         for x in range(len(grid[0])):
@@ -657,6 +658,7 @@ def find_safe_spawn(grid):
                 return x, y
     return 1, 1  # fallback
 
+#Checks if the player is able to level up
 def check_level_up():
     global exp_cap
     exp_cap = Player.level * 20 * 1.25
@@ -676,7 +678,6 @@ Overworld.fog_enabled = False
 Overworld.add_forest_patches()
 spawn_x, spawn_y = find_safe_spawn(overworld_grid)
 Overworld.enter_map(Player, spawn_x, spawn_y)
-
 Overworld.add_door(10, 10)
 Overworld.add_door(40, 8)
 Overworld.add_door(25, 15)
@@ -687,6 +688,7 @@ stick = Item("l", "Stick", 2, 2, 1, item_type="weapon", atk=2)
 current_map = Overworld
 current_map.add_entity(stick)
 
+#Player Stats and Stat Names are for the Stats screen 
 Player_Stats = [
     Player.ATK, Player.DEF, Player.max_health
 ]
@@ -694,92 +696,38 @@ Stat_names = [
     "Attack", "Defence", "Max Health"
 ]
 
+#Makes sure that the Player has their correct EXP cap
 check_level_up()
 
+#Global shop inventory, 
 shop_inventory = [
     Item("}", "Platemail", 0, 0, 25, item_type="armour", defn=6),
     Item(">", "Spear", 0, 0, 20, item_type="weapon", atk=5),
     Item("!!", "Greater Health Potion", 0, 0, 10, item_type="potion", hp=10)
 ]
 
+def buy_item(index):
+    
+    item = shop_inventory[index]
 
-#Draw_Game prints the Map onto the window, we do this by interating through both the x axis and y axis 
-def Draw_Game():
-    screen.fill((0, 0, 0))
+    if Player.GOLD >= item.value:
+        Player.GOLD -= item.value
+        Player.pickup_item(item)
+        add_message(f"Brought {item.name}")
 
-    current_map.update_visibility(Player, view_radius)
+    else:
+        add_message("Not enough gold")
 
-    current_map.draw()
+def sell_item(index):
+    item = Player.inventory[index]
 
-    if confirmation_window:
-        overlay = pygame.Surface((MAP_PIXEL_WIDTH - 230, MAP_PIXEL_HEIGHT - 130))
-        overlay.set_alpha(230)
-        overlay.fill((20, 20, 20))
+    Player.GOLD += item.value
+    shop_inventory.append(item)
+    Player.remove_item(item)
 
-        screen.blit(overlay, (100, 50))
+    add_message(f"Sold: {item.name}")
 
-        title = font.render("Return to the surface?", True, (255, 255, 255))
-        screen.blit(title, (120, 70))
-
-        yes_text = font.render("[Y] Yes", True, (0, 255, 0))
-        no_text = font.render("[N] No", True, (255, 0, 0))
-
-        screen.blit(yes_text, (120, 110))
-        screen.blit(no_text, (120, 135))
-
-    if inventory_open:
-        overlay = pygame.Surface((MAP_PIXEL_WIDTH - 200, MAP_PIXEL_HEIGHT - 100))
-        overlay.set_alpha(220)
-        overlay.fill((20, 20, 20))
-
-        screen.blit(overlay, (100, 50))
-
-        title = font.render("===INVENTORY===", True, (255,255,255))
-        screen.blit(title, (120, 60))
-
-        weapon_text = font.render(f"Weapon: {Player.weapon.name if Player.weapon else 'None'}", True, (200,200,200))
-        armour_text = font.render(f"Armour: {Player.armour.name if Player.armour else 'None'}", True, (200,200,200))
-        misc_text = font.render(f"Equipment: {Player.misc.name if Player.misc else 'None'}", True, (200, 200, 200))
-
-        screen.blit(weapon_text, (120, 90))
-        screen.blit(armour_text, (120, 110))
-        screen.blit(misc_text, (120, 130))
-
-        for i, item in enumerate(Player.inventory):
-            color = (255,255,0) if i == inventory_selected else (200,200,200)
-            text = font.render(item.name, True, color)
-            screen.blit(text, (120, 180 + i * 25))
-
-    footer_rect = pygame.Rect(
-        0,
-        MAP_PIXEL_HEIGHT,
-        MAP_PIXEL_WIDTH,
-        UI_HEIGHT
-    )
-
-    pygame.draw.rect(screen, (25, 25, 25), footer_rect)
-    pygame.draw.line(
-        screen,
-        (80, 80, 80),
-        (0, MAP_PIXEL_HEIGHT),
-        (MAP_PIXEL_WIDTH, MAP_PIXEL_HEIGHT),
-        2
-    )
-
-    stats_text = f"{Player.name} | LEVEL: {Player.level} | ATK: {Player.ATK} | DEF: {Player.DEF} | HP: {Player.HP} | GOLD: {Player.GOLD} | XP: {Player.exp} | Current Level: {current_map.name}"
-    stats_surface = font.render(stats_text, True, (255, 255, 255))
-    screen.blit(stats_surface, (10, MAP_PIXEL_HEIGHT + 5))
-
-
-    log_x = 10
-    log_y = MAP_PIXEL_HEIGHT + 30
-
-    for i, msg in enumerate(message_log):
-        text_surface = font.render(msg, True, (180, 180, 180))
-        screen.blit(text_surface, (log_x, log_y + i * 20))
-
-    pygame.display.flip()
-
+#We use this method to add messages to the Message Log on the screen
 def add_message(text):
     global message_log
 
@@ -922,8 +870,7 @@ def Try_Move(character, dx, dy):
 
             add_message("You have arrived in a village")
 
-
-#This is to move the NPC
+#This is to move the NPC's
 def Foe_Move():
 
     for entity in current_map.entities:
@@ -936,6 +883,86 @@ def Foe_Move():
             else:
                 continue
 
+#Draw_Game is responible for the Main game screen and if there are any overlays such as the Confimation window or the Inventory
+#Its also responsible for the UI elements such as the Stats lower portion
+#And Resposible for Fog
+def Draw_Game():
+    screen.fill((0, 0, 0))
+
+    current_map.update_visibility(Player, view_radius)
+
+    current_map.draw()
+
+    if confirmation_window:
+        overlay = pygame.Surface((MAP_PIXEL_WIDTH - 230, MAP_PIXEL_HEIGHT - 130))
+        overlay.set_alpha(230)
+        overlay.fill((20, 20, 20))
+
+        screen.blit(overlay, (100, 50))
+
+        title = font.render("Return to the surface?", True, (255, 255, 255))
+        screen.blit(title, (120, 70))
+
+        yes_text = font.render("[Y] Yes", True, (0, 255, 0))
+        no_text = font.render("[N] No", True, (255, 0, 0))
+
+        screen.blit(yes_text, (120, 110))
+        screen.blit(no_text, (120, 135))
+
+    if inventory_open:
+        overlay = pygame.Surface((MAP_PIXEL_WIDTH - 200, MAP_PIXEL_HEIGHT - 100))
+        overlay.set_alpha(220)
+        overlay.fill((20, 20, 20))
+
+        screen.blit(overlay, (100, 50))
+
+        title = font.render("===INVENTORY===", True, (255,255,255))
+        screen.blit(title, (120, 60))
+
+        weapon_text = font.render(f"Weapon: {Player.weapon.name if Player.weapon else 'None'}", True, (200,200,200))
+        armour_text = font.render(f"Armour: {Player.armour.name if Player.armour else 'None'}", True, (200,200,200))
+        misc_text = font.render(f"Equipment: {Player.misc.name if Player.misc else 'None'}", True, (200, 200, 200))
+
+        screen.blit(weapon_text, (120, 90))
+        screen.blit(armour_text, (120, 110))
+        screen.blit(misc_text, (120, 130))
+
+        for i, item in enumerate(Player.inventory):
+            color = (255,255,0) if i == inventory_selected else (200,200,200)
+            text = font.render(item.name, True, color)
+            screen.blit(text, (120, 180 + i * 25))
+
+    footer_rect = pygame.Rect(
+        0,
+        MAP_PIXEL_HEIGHT,
+        MAP_PIXEL_WIDTH,
+        UI_HEIGHT
+    )
+
+    pygame.draw.rect(screen, (25, 25, 25), footer_rect)
+    pygame.draw.line(
+        screen,
+        (80, 80, 80),
+        (0, MAP_PIXEL_HEIGHT),
+        (MAP_PIXEL_WIDTH, MAP_PIXEL_HEIGHT),
+        2
+    )
+
+    stats_text = f"{Player.name} | LEVEL: {Player.level} | ATK: {Player.ATK} | DEF: {Player.DEF} | HP: {Player.HP} | GOLD: {Player.GOLD} | XP: {Player.exp} | Current Level: {current_map.name}"
+    stats_surface = font.render(stats_text, True, (255, 255, 255))
+    screen.blit(stats_surface, (10, MAP_PIXEL_HEIGHT + 5))
+
+
+    log_x = 10
+    log_y = MAP_PIXEL_HEIGHT + 30
+
+    for i, msg in enumerate(message_log):
+        text_surface = font.render(msg, True, (180, 180, 180))
+        screen.blit(text_surface, (log_x, log_y + i * 20))
+
+    pygame.display.flip()
+
+#This handles the Main Menu allowing for Player Name Imput
 def Draw_Main_Menu():
     screen.fill((0, 0, 0))
 
@@ -961,6 +988,7 @@ def Draw_Main_Menu():
 
     pygame.display.flip()
 
+#Here we handle The Game Over Screen
 def Draw_Game_Over():
     screen.fill((0, 0, 0))
 
@@ -975,6 +1003,7 @@ def Draw_Game_Over():
 
     pygame.display.flip()
 
+#Tis is the Shop's Menu
 def Draw_Shop():
 
     screen.fill((0, 0, 0))
@@ -1020,6 +1049,7 @@ def Draw_Shop():
 
     pygame.display.flip()
 
+#Player Stats Screen
 def Draw_Player_stats():
     screen.fill((0, 0, 0))
 
@@ -1027,8 +1057,7 @@ def Draw_Player_stats():
     screen.blit(title, (MAP_PIXEL_WIDTH // 2 - 80, 40))
 
     left_x = 20
-#------------    
-#Player Stats
+
     player_name = font.render(f"Name: {Player.name}", True, (255, 255, 255))
     screen.blit(player_name, (left_x, 100))
 
@@ -1058,28 +1087,6 @@ def Draw_Player_stats():
     screen.blit(help_text, (10, MAP_PIXEL_HEIGHT - 20))
 
     pygame.display.flip()
-
-def buy_item(index):
-    
-    item = shop_inventory[index]
-
-    if Player.GOLD >= item.value:
-        Player.GOLD -= item.value
-        Player.pickup_item(item)
-        add_message(f"Brought {item.name}")
-
-    else:
-        add_message("Not enough gold")
-
-def sell_item(index):
-    item = Player.inventory[index]
-
-    Player.GOLD += item.value
-    shop_inventory.append(item)
-    Player.remove_item(item)
-
-    add_message(f"Sold: {item.name}")
-
 
 #Here we have the main Game Loop
 def Game_Loop():
@@ -1225,9 +1232,7 @@ def Game_Loop():
                         if Player.upgrade_points > 0:
                             Player_Stats[stats_selected_index] += 1
                             Player.upgrade_points -= 1
-
- 
-                        
+            
             Draw_Player_stats()
             continue
 
@@ -1293,9 +1298,7 @@ def Game_Loop():
                     elif event.key == pygame.K_r:
                         confirmation_window = True
                     elif event.key == pygame.K_l:
-                        game_state = "stats"
-
-                                    
+                        game_state = "stats"        
 
         if not inventory_open and not confirmation_window and not shop_open and not game_state == "stats":
             keys = pygame.key.get_pressed()
@@ -1325,10 +1328,10 @@ def Game_Loop():
 
                 if current_time - last_move_time > delay:
                     Try_Move(Player, move_x, move_y)
+                    check_level_up()
                     Combat()
                     Foe_Move()
                     last_move_time = current_time
-                    check_level_up()
 
         if Player.HP <= 0:
             game_state = "gameover"
