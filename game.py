@@ -95,6 +95,7 @@ shop_selected_index = 0
 shop_panel = "shop" # "shop" or "player"
 shop_open = False
 stats_selected_index = 0
+exp_cap = 0
 
 #==============
 #Object Classes
@@ -130,7 +131,7 @@ class Item():
 
 class Character():
     #Character Vars
-    def __init__(self, token, name, x, y, NPC, ATK, DEF, HP, GOLD, current_map=None):
+    def __init__(self, token, name, x, y, NPC, ATK, DEF, HP, GOLD, EXP, current_map=None):
 
         #token is how the character looks on the Map
         self.token = token
@@ -160,8 +161,10 @@ class Character():
 
         self.shopkeeper = False
 
-        self.exp = 0
+        self.exp = EXP
         self.level = 1
+
+        self.upgrade_points = 0
 
     #Adds an Item to the Inventory and Informs the Player
     def pickup_item(self, item):
@@ -320,11 +323,11 @@ class GameMap:
             roll = random.random()
 
             if roll < 0.6:
-                foe = Character("g", "Goblin", x, y, True, 2, 1, 10, 5)
+                foe = Character("g", "Goblin", x, y, True, 2, 1, 10, 5, 5)
             elif roll < 0.9:
-                foe = Character("o", "Orc", x, y, True, 3, 2, 15, 3)
+                foe = Character("o", "Orc", x, y, True, 3, 2, 15, 3, 8)
             else:
-                foe = Character("D", "Demon", x, y, True, 5, 3, 20, 5)
+                foe = Character("D", "Demon", x, y, True, 5, 3, 20, 5, 10)
 
             self.add_entity(foe)
     
@@ -643,7 +646,7 @@ def generate_town(width=55, height=20):
 
 
 #Here we initilise the Player with their attrbutes
-Player = Character("@", "Player", 7, 13, False, 3, 2, 20, 0)
+Player = Character("@", "Player", 7, 13, False, 3, 2, 20, 0, 0)
 
 def find_safe_spawn(grid):
     for y in range(len(grid)):
@@ -747,7 +750,7 @@ def Draw_Game():
         2
     )
 
-    stats_text = f"{Player.name} | LEVEL: {Player.level} | ATK: {Player.ATK} | DEF: {Player.DEF} | HP: {Player.HP} | GOLD: {Player.GOLD} | XP: {Player.exp}| Current Level: {current_map.name}"
+    stats_text = f"{Player.name} | LEVEL: {Player.level} | ATK: {Player.ATK} | DEF: {Player.DEF} | HP: {Player.HP} | GOLD: {Player.GOLD} | XP: {Player.exp} | Current Level: {current_map.name}"
     stats_surface = font.render(stats_text, True, (255, 255, 255))
     screen.blit(stats_surface, (10, MAP_PIXEL_HEIGHT + 5))
 
@@ -801,8 +804,10 @@ def Combat():
 
             if entity.HP <= 0:
                 Player.GOLD += entity.GOLD
+                Player.exp += entity.exp
                 current_map.entities.remove(entity)
                 add_message(f"{entity.name} Defeated You have earned {entity.GOLD} Gold!")
+                add_message(f"You have gained: {entity.exp} XP!")
 
             if Player.HP <= 0:
                 game_state = "gameover"
@@ -886,11 +891,11 @@ def Try_Move(character, dx, dy):
                     y = random.randint(1, town_map.height - 2)
 
                     if town_grid[y][x] in [grass, stone]:
-                        villager = Character("v", "Villager", x, y, True, 0, 0, 5, 0)
+                        villager = Character("v", "Villager", x, y, True, 0, 0, 5, 0, 0)
                         town_map.add_entity(villager)
                         break
 
-            shopkeeper = Character("S", "Shopkeeper", 27, 10, True, 1, 1, 5, 1)
+            shopkeeper = Character("S", "Shopkeeper", 27, 10, True, 1, 1, 5, 1, 0)
             shopkeeper.shopkeeper = True
 
             town_map.add_entity(shopkeeper)
@@ -1017,14 +1022,20 @@ def Draw_Player_stats():
     player_level = font.render(f"Level: {Player.level}", True, (200, 200, 200))
     screen.blit(player_level, (left_x, 140))
 
+    xpcap = font.render(f"XP needed to Level Up: {exp_cap - Player.exp}", True, (200, 200, 200))
+    screen.blit(xpcap, (left_x, 160))
+
     player_exp = font.render(f"XP: {Player.exp}", True, (200, 200, 200))
-    screen.blit(player_exp, (left_x, 160))
+    screen.blit(player_exp, (left_x, 180))
+
+    upgrade_points = font.render(f"Upgrade Points: {Player.upgrade_points}", True, (200, 200, 200))
+    screen.blit(upgrade_points, (left_x, 200))
 
     for i, stat in enumerate(Player_Stats):
         color = (255, 255, 0) if (i == stats_selected_index) else (200, 200, 200)
         text = f"{stat}"
         line = font.render(text, True, color)
-        screen.blit(line, (left_x + 20, 200 + i * 20))
+        screen.blit(line, (left_x + 20, 220 + i * 20))
 
 
     help_text = font.render("(Up and Down): Select items | ENTER: Upgrade | Q: Exit", True, (150, 150, 150))
@@ -1052,6 +1063,15 @@ def sell_item(index):
     Player.remove_item(item)
 
     add_message(f"Sold: {item.name}")
+
+def check_level_up():
+    global exp_cap
+    exp_cap = Player.level * 40 * 1.25
+    if Player.exp >= exp_cap:
+        Player.level += 1
+        Player.upgrade_points = Player.level + 1
+        Player.exp -= exp_cap
+        add_message(f"You are now Level: {Player.level}")
 
 #Here we have the main Game Loop
 def Game_Loop():
@@ -1191,6 +1211,14 @@ def Game_Loop():
 
                     elif event.key == pygame.K_DOWN:
                         stats_selected_index = min(len(Player_Stats) - 1, stats_selected_index + 1)
+
+                    elif event.key == pygame.K_RETURN:
+                        if Player.upgrade_points > 0:
+                            Player.ATK += 2
+                            Player.DEF += 1
+                            Player.HP += 1
+                            Player.upgrade_points -= 1
+
  
                         
             Draw_Player_stats()
@@ -1247,9 +1275,7 @@ def Game_Loop():
                     if event.key == pygame.K_RETURN:
                         for entity in current_map.entities:
                             if isinstance(entity, Character) and entity.shopkeeper:
-                                print("Shopkeepers position: ", entity.x, entity.y)
                                 if max(abs(Player.x - entity.x), abs(Player.y - entity.y)) <= 1:
-                                    print("Player next to Shopkeeper")
                                     game_state = "shop"
                                     shop_open = True
                                     break
@@ -1264,7 +1290,7 @@ def Game_Loop():
 
                                     
 
-        if not inventory_open and not confirmation_window and not shop_open:
+        if not inventory_open and not confirmation_window and not shop_open and not game_state == "stats":
             keys = pygame.key.get_pressed()
 
             move_x = 0
@@ -1295,6 +1321,7 @@ def Game_Loop():
                     Combat()
                     Foe_Move()
                     last_move_time = current_time
+                    check_level_up()
 
         if Player.HP <= 0:
             game_state = "gameover"
