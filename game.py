@@ -166,6 +166,8 @@ class Character():
 
         self.upgrade_points = 0
 
+        self.max_health = 20
+
     #Adds an Item to the Inventory and Informs the Player
     def pickup_item(self, item):
         self.inventory.append(item)
@@ -211,8 +213,8 @@ class Character():
     def use_potion(self, item):
         self.HP += item.hp
         add_message("Used Potion")
-        if self.HP > 20:
-            self.HP = 20
+        if self.HP > self.max_health:
+            self.HP = self.max_health
 
     def remove_item(self, item):
         self.inventory.remove(item)
@@ -655,6 +657,15 @@ def find_safe_spawn(grid):
                 return x, y
     return 1, 1  # fallback
 
+def check_level_up():
+    global exp_cap
+    exp_cap = Player.level * 20 * 1.25
+    if Player.exp >= exp_cap:
+        Player.level += 1
+        Player.upgrade_points = Player.level + 1
+        Player.exp -= exp_cap
+        add_message(f"You are now Level: {Player.level}")
+
 
 #==================
 #Generate Overworld
@@ -677,8 +688,13 @@ current_map = Overworld
 current_map.add_entity(stick)
 
 Player_Stats = [
-    f"Attack: {Player.ATK}", f"Defence: {Player.DEF}", f"Health: {Player.HP}"
+    Player.ATK, Player.DEF, Player.max_health
 ]
+Stat_names = [
+    "Attack", "Defence", "Max Health"
+]
+
+check_level_up()
 
 shop_inventory = [
     Item("}", "Platemail", 0, 0, 25, item_type="armour", defn=6),
@@ -1033,7 +1049,7 @@ def Draw_Player_stats():
 
     for i, stat in enumerate(Player_Stats):
         color = (255, 255, 0) if (i == stats_selected_index) else (200, 200, 200)
-        text = f"{stat}"
+        text = f"{Stat_names[i]}: {stat}"
         line = font.render(text, True, color)
         screen.blit(line, (left_x + 20, 220 + i * 20))
 
@@ -1064,14 +1080,6 @@ def sell_item(index):
 
     add_message(f"Sold: {item.name}")
 
-def check_level_up():
-    global exp_cap
-    exp_cap = Player.level * 40 * 1.25
-    if Player.exp >= exp_cap:
-        Player.level += 1
-        Player.upgrade_points = Player.level + 1
-        Player.exp -= exp_cap
-        add_message(f"You are now Level: {Player.level}")
 
 #Here we have the main Game Loop
 def Game_Loop():
@@ -1143,6 +1151,7 @@ def Game_Loop():
                         Player.DEF = 2
                         Player.exp = 0
                         Player.level = 1
+                        Player.max_health = 20
 
                         game_state = "menu"
 
@@ -1214,9 +1223,7 @@ def Game_Loop():
 
                     elif event.key == pygame.K_RETURN:
                         if Player.upgrade_points > 0:
-                            Player.ATK += 2
-                            Player.DEF += 1
-                            Player.HP += 1
+                            Player_Stats[stats_selected_index] += 1
                             Player.upgrade_points -= 1
 
  
