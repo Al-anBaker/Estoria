@@ -36,6 +36,11 @@ screen = pygame.display.set_mode(
 
 pygame.display.set_caption("===ASCII DUNGEION===")
 
+Legendary = (255, 128, 0)
+Rare = (163, 53, 238)
+Uncommon = (30, 255, 0)
+Common = (255, 255, 255)
+
 
 #Map Tile sets, these are the token for static Tiles on the map
 water = "~"
@@ -49,26 +54,43 @@ town = "V"
 
 #In Colour Map we asign colours to each of the Tiles using RGB Values this helps with making the game look better
 color_map = {
+    #STATIC TILES
     wall: (200, 200, 200),
     empty: (40, 40, 40),
     water: (0, 0, 255),
-    "@": (255, 255, 0), #Player
-    "%": (255, 0, 255), #Legacy Foe
-    "[": (0, 255, 0), #Leather Armour
-    "/": (0, 255, 0), #Dagger
-    "!": (0, 255, 0), #Health Potion
-    ">": (0, 255, 255), #Door
-    "g": (255, 0, 0), #Goblin
-    "o": (255, 0, 0), #Orc
-    "D": (255, 50, 50), #Demon
-    "|": (255, 140, 0), #Torch
     grass: (20, 120, 20), #Grass
     tree: (0, 140, 0), #Tree
     stone: (120, 120, 120), #Stone
     town: (255, 255, 255), #Town
+    door: (0, 255, 255), #Door
+    
+
+    #CHARACTERS
+    "o": (255, 0, 0), #Orc
+    "D": (255, 50, 50), #Demon
     "v": (140, 220, 140), #Villagers
     "S": (255, 215, 0), #Shop Clerk
-    "l": (165, 42, 42) #Stick
+    "g": (255, 0, 0), #Goblin
+    "@": (255, 255, 0), #Player
+    "%": (255, 0, 255), #Legacy Foe
+
+    #ITEMS
+        #LEGENDARY
+    ")": Legendary,   # Runed Blade (T3 Sword)
+    "]": Legendary, # Runed Plate (T3 Armour)
+        #RARE
+    "{": Rare,   # Chainmail (T2 Armour)
+    "L": Rare,     # Iron Sword (T2 Sword)
+        #UNCOMMON
+    "[": Uncommon,  #Cloth Armour (T1 Armour)
+    "/": Uncommon,  #Rusty Dagger (T1 Sword)
+        #COMMON
+    "l": Common,   #Stick (T0 Sword)
+    "r": Common,   #Rags (T0 Armour)
+    "!": Common,   #Health Potion
+    "|": Common,   #Torch
+
+
 }
 
 def get_color(char):
@@ -81,12 +103,11 @@ def get_color(char):
 #===============
 playerLastMove = True
 dungeon_level = 0 #Tracks what floor of a Dungeon the Player is on
-inventory_open = False
 inventory_selected = 0
 message_log = []
 MAX_LOG_LINES = 2
 view_radius = 6
-game_state = "menu" #"menu" or "game" or "shop" or "stats"
+game_state = "menu" #"menu" or "game" or "shop" or "stats" or "inventory"
 player_name_input =""
 OVERWORLD_WIDTH = 55
 OVERWORLD_HEIGHT = 20
@@ -97,6 +118,7 @@ shop_panel = "shop" # "shop" or "player"
 shop_open = False
 stats_selected_index = 0
 exp_cap = 0
+inv_limit = 5
 
 #==============
 #Object Classes
@@ -127,6 +149,8 @@ class Item():
 
         #If the Item is active or has been picked up (Deactive)
         self.active = active
+
+        self.equipped = False
 
 
 
@@ -171,8 +195,13 @@ class Character():
 
     #Adds an Item to the Inventory and Informs the Player
     def pickup_item(self, item):
-        self.inventory.append(item)
-        add_message(f"You have picked up a: {item.name}")
+        if len(self.inventory) >= 5:
+            add_message("Inventory Full")
+            return False
+        else:
+            self.inventory.append(item)
+            add_message(f"You have picked up a: {item.name}")
+            return True
 
     #When in the inventory this add the Item from the Inventory to be a held item
     def equip_item(self, item):
@@ -180,34 +209,49 @@ class Character():
         if item.type == "weapon":
             if self.weapon:
                 self.ATK -= self.weapon.atk
+                self.DEF -= self.weapon.defn
+                self.weapon.equipped = False
             self.weapon = item
+            item.equipped = True
             self.ATK += item.atk
+            self.DEF += item.defn
 
         elif item.type == "armour":
             if self.armour:
                 self.DEF -= self.armour.defn
+                self.ATK -= self.armour.atk
+                self.armour.equipped = False
             self.armour = item
+            item.equipped = True
             self.DEF += item.defn
+            self.ATK += item.atk
 
         elif item.type == "misc":
             if self.misc:
                 view_radius -= self.misc.vision
+                self.misc.equipped = False
             self.misc = item
+            item.equipped = True
             view_radius += item.vision
 
 
     #Like the Equip Item but unequips instead
-    def unequip_item(self, slot):
+    def unequip_item(self, item):
         global view_radius
-        if slot == "weapon" and self.weapon:
+        if item.type == "weapon" and self.weapon:
             self.ATK -= self.weapon.atk
+            self.DEF -= self.weapon.defn
+            self.weapon.equipped = False
             self.weapon = None
-        elif slot == "armour" and self.armour:
-            self.DEF -= self.armour.defn
-            self.armour = None
 
-        elif slot == "equipment" and self.misc:
+        elif item.type == "armour" and self.armour:
+            self.DEF -= self.armour.defn
+            self.ATK -= self.armour.atk
+            self.armour.equipped = False
+            self.armour = None
+        elif item.type == "misc" and self.misc:
             view_radius -= self.misc.vision
+            self.misc.equipped = False
             self.misc = None
 
     #For Consumables to give a temporary boot to the Player or Heal
@@ -262,7 +306,7 @@ class GameMap:
         if not hasattr(self, "rooms"):
             return
         
-        item_count = random.randint(2, 5)
+        item_count = random.randint(1, 3)
 
         for _ in range(item_count):
             room = random.choice(self.rooms)
@@ -272,21 +316,42 @@ class GameMap:
             x = random.randint(rx + 1, rx + rw - 2)
             y = random.randint(ry + 1, ry + rh - 2)
 
-            if self.grid != empty:
+            if self.grid[y][x] != empty:
                 continue
-        
-        roll = random.random()
+            
+            tier = get_loot_tier()
+            roll = random.random()
 
-        if roll < 0.3:
-            item = Item("!", "Health Potion", x, y, 10, item_type="potion", hp=5)
-        elif roll < 0.7:
-            item = Item("/", "Dagger", x, y, 5, item_type="weapon", atk=2)
-        elif roll < 0.9:
-            item = Item("|", "Torch", x, y, 10, item_type="misc", vision=2)
-        else:
-            item = Item("[", "Leather Armour", x, y, 5, item_type="armour", defn=2)
+            if roll < 0.3:
+                item = Item("!", "Health Potion", x, y, 10, item_type="potion", hp=5)
+            elif roll < 0.4:
+                item = Item("|", "Torch", x, y, 5, item_type="misc", vision=2)
 
-        self.entities.append(item)
+            elif roll < 0.65:
+                w = weapon_tiers[tier]
+                item = Item(
+                    w["token"],
+                    w["name"],
+                    x, y,
+                    w["value"],
+                    item_type="weapon",
+                    atk=w["atk"],
+                    defn=w["defn"],
+                    active=True
+                )
+            else:
+                a = armour_tiers[tier]
+                item = Item(
+                    a["token"],
+                    a["name"],
+                    x, y,
+                    a["value"],
+                    item_type="armour",
+                    defn=a["defn"],
+                    atk=a["atk"],
+                    active=True
+                )
+            self.entities.append(item)
 
     #Here we handle Map Transition for the Player and make sure they spawn in a safe area
     def enter_map(self, player, x, y):
@@ -304,7 +369,7 @@ class GameMap:
         if not hasattr(self, "rooms"):
             return
         
-        base_count = random.randint(3, 6)
+        base_count = random.randint(1, 3)
 
         for _ in range(base_count):
             room = random.choice(self.rooms)
@@ -697,6 +762,13 @@ def check_level_up():
         Player.EXP -= exp_cap
         add_message(f"You are now Level: {Player.level}")
 
+def check_inv_full():
+    if len(Player.inventory) >= 5:
+        return True
+    else:
+        return False
+    
+
 
 #==================
 #Generate Overworld
@@ -713,9 +785,7 @@ Overworld.add_door(25, 15)
 Overworld.surround_doors_with_stone()
 Overworld.grid[5][20] = town
 Overworld.grid[14][35] = town
-stick = Item("l", "Stick", 2, 2, 1, item_type="weapon", atk=2)
 current_map = Overworld
-current_map.add_entity(stick)
 
 
 
@@ -736,6 +806,30 @@ shop_inventory = [
     Item(">", "Spear", 0, 0, 20, item_type="weapon", atk=5),
     Item("!!", "Greater Health Potion", 0, 0, 10, item_type="potion", hp=10)
 ]
+
+weapon_tiers = {
+    1: {"name": "Stick", "token": "l", "atk": 2, "defn": 0, "value": 5},
+    2: {"name": "Rusty Dagger", "token": "/", "atk": 4, "defn": 2, "value": 5},
+    3: {"name": "Iron Sword", "token": "L", "atk": 7, "defn": 4, "value": 12},
+    4: {"name": "Runed Blade", "token": ")", "atk": 10, "defn": 7, "value": 25},
+}
+
+armour_tiers = {
+    1: {"name": "Rags", "token": "r", "defn": 2, "atk": 0, "value": 1},
+    2: {"name": "Cloth Armour", "token": "[", "defn": 4, "atk": 2, "value": 5},
+    3: {"name": "Chainmail", "token": "{", "defn": 7, "atk": 4, "value": 12},
+    4: {"name": "Runed Plate", "token": "]", "defn": 10, "atk": 7, "value": 25},
+}
+
+def get_loot_tier():
+    if dungeon_level < 3:
+        return 1
+    elif dungeon_level < 6:
+        return 2
+    elif dungeon_level < 10:
+        return 3
+    else:
+        return 4
 
 def full_towngen():
             global current_map
@@ -865,8 +959,8 @@ def Try_Move(character, dx, dy):
     for entity in current_map.entities[:]:
         if isinstance(entity, Item):
             if entity.x == Player.x and entity.y == Player.y:
-                Player.pickup_item(entity)
-                current_map.entities.remove(entity)
+                if Player.pickup_item(entity):
+                    current_map.entities.remove(entity)
 
 
     #This handles Player and Door Interation allowing for Players to move between Levels, and if needed Generate New Levels
@@ -1011,7 +1105,6 @@ def load_game():
 
 #This is to move the NPC's
 def Foe_Move():
-
     for entity in current_map.entities:
 
         if isinstance(entity, Character) and entity.NPC:
@@ -1047,29 +1140,6 @@ def Draw_Game():
 
         screen.blit(yes_text, (120, 110))
         screen.blit(no_text, (120, 135))
-
-    if inventory_open:
-        overlay = pygame.Surface((MAP_PIXEL_WIDTH - 200, MAP_PIXEL_HEIGHT - 100))
-        overlay.set_alpha(220)
-        overlay.fill((20, 20, 20))
-
-        screen.blit(overlay, (100, 50))
-
-        title = font.render("===INVENTORY===", True, (255,255,255))
-        screen.blit(title, (120, 60))
-
-        weapon_text = font.render(f"Weapon: {Player.weapon.name if Player.weapon else 'None'}", True, (200,200,200))
-        armour_text = font.render(f"Armour: {Player.armour.name if Player.armour else 'None'}", True, (200,200,200))
-        misc_text = font.render(f"Equipment: {Player.misc.name if Player.misc else 'None'}", True, (200, 200, 200))
-
-        screen.blit(weapon_text, (120, 90))
-        screen.blit(armour_text, (120, 110))
-        screen.blit(misc_text, (120, 130))
-
-        for i, item in enumerate(Player.inventory):
-            color = (255,255,0) if i == inventory_selected else (200,200,200)
-            text = font.render(item.name, True, color)
-            screen.blit(text, (120, 180 + i * 25))
 
     footer_rect = pygame.Rect(
         0,
@@ -1121,7 +1191,7 @@ def Draw_Main_Menu():
     screen.blit(name_surface, name_rect)
 
     # Info
-    info = font.render("Enter = New Game | F6 = Load Game", True, (150,150,150))
+    info = font.render("Enter = New Game | F6 = Load Game | ESC = Exit", True, (150,150,150))
     info_rect = info.get_rect(center=(MAP_PIXEL_WIDTH // 2, 240))
     screen.blit(info, info_rect)
 
@@ -1148,8 +1218,9 @@ def Draw_Shop():
     screen.fill((0, 0, 0))
 
     # Titles
-    title = font.render("==SHOP==", True, (255, 255, 255))
-    screen.blit(title, (10, 10))
+    title = font.render("==SHOP KEEPER==", True, (255,255,255))
+    title_rect = title.get_rect(center=(MAP_PIXEL_WIDTH // 2, 20))
+    screen.blit(title, title_rect)
 
     gold_text = font.render(f"Gold: {Player.GOLD}", True, (255, 215, 0))
     screen.blit(gold_text, (10,30))
@@ -1174,7 +1245,10 @@ def Draw_Shop():
 
     for i, item in enumerate(Player.inventory):
         color = (255, 255, 0) if (shop_panel == "player" and i == shop_selected_index) else (200, 200, 200)
-        text = f"{item.name} (+{item.value}g)"
+        if item.equipped:
+            text = f"{item.name} (+{item.value}g) (equipped)"
+        else:
+            text = f"{item.name} (+{item.value}g)"
         line = font.render(text, True, color)
         screen.blit(line, (right_x, y_start + i * 20))
 
@@ -1188,12 +1262,61 @@ def Draw_Shop():
 
     pygame.display.flip()
 
+def Draw_Inventory():
+    screen.fill((0, 0, 0))
+
+    title = font.render("===INVENTORY===", True, (255,255,255))
+    title_rect = title.get_rect(center=(MAP_PIXEL_WIDTH // 2, 40))
+    screen.blit(title, title_rect)
+
+    left_x = 20
+    full_meter = inv_limit - len(Player.inventory)
+
+    if check_inv_full():
+        invcolour = (255, 0, 0)
+        text = f"Free Slots: {full_meter}/5 (Full: walking speed Reduced!)"
+    else:
+        invcolour = (200, 200, 200)
+        text = f"Free Slots: {full_meter}/5"
+    inventory_cap_text = font.render(text, True, invcolour)
+    screen.blit(inventory_cap_text, (left_x, 60))
+
+    weapon_text = font.render(f"Weapon: {Player.weapon.name if Player.weapon else 'None'}", True, (200,200,200))
+    screen.blit(weapon_text, (left_x, 80))
+
+    armour_text = font.render(f"Armour: {Player.armour.name if Player.armour else 'None'}", True, (200,200,200))
+    screen.blit(armour_text, (left_x, 100))
+
+    misc_text = font.render(f"Equipment: {Player.misc.name if Player.misc else 'None'}", True, (200, 200, 200))
+    screen.blit(misc_text, (left_x, 120))
+
+    for i, item in enumerate(Player.inventory):
+        color = (255,255,0) if i == inventory_selected else (200,200,200)
+        if item.equipped:
+            text = font.render(f"{item.name} (ATK: +{item.atk} | DEF: +{item.defn} | HP: +{item.hp}) (equipped)", True, color)
+        else:
+            text = font.render(f"{item.name} (ATK: +{item.atk} | DEF: +{item.defn} | HP: +{item.hp})", True, color)
+        screen.blit(text, (left_x + 20, 160 + i * 25))
+
+
+
+    help_text = font.render("(Up and Down): Select items | ENTER: Equip/Unequip | U: Unequip All | Q: Exit | T: Trash", True, (150, 150, 150))
+    screen.blit(help_text, (10, MAP_PIXEL_HEIGHT - 40))
+
+    msg = message_log[-1]
+    log_y = MAP_PIXEL_HEIGHT - 20
+    text_surface = font.render(msg, True, (180, 180, 180))
+    screen.blit(text_surface, (10, log_y))
+
+    pygame.display.flip()
+
 #Player Stats Screen
 def Draw_Player_stats():
     screen.fill((0, 0, 0))
 
-    title = font.render(f"==Player's: Stats==", True, (255, 255, 255))
-    screen.blit(title, (MAP_PIXEL_WIDTH // 2 - 80, 40))
+    title = font.render(f"==={Player.name}'s STATS===", True, (255,255,255))
+    title_rect = title.get_rect(center=(MAP_PIXEL_WIDTH // 2, 40))
+    screen.blit(title, title_rect)
 
     left_x = 20
 
@@ -1223,14 +1346,19 @@ def Draw_Player_stats():
 
 
     help_text = font.render("(Up and Down): Select items | ENTER: Upgrade | Q: Exit", True, (150, 150, 150))
-    screen.blit(help_text, (10, MAP_PIXEL_HEIGHT - 20))
+    screen.blit(help_text, (10, MAP_PIXEL_HEIGHT - 30))
+
+    msg = message_log[-1]
+    log_y = MAP_PIXEL_HEIGHT - 10
+    text_surface = font.render(msg, True, (180, 180, 180))
+    screen.blit(text_surface, (10, log_y))
 
     pygame.display.flip()
 
 #Here we have the main Game Loop
 def Game_Loop():
     global playerLastMove, last_move_time
-    global inventory_open, inventory_selected
+    global inventory_selected
     global game_state, player_name_input, Player
     global confirmation_window, dungeon_level
     global shop_selected_index, shop_panel
@@ -1253,7 +1381,10 @@ def Game_Loop():
 
                 if event.type == pygame.KEYDOWN:
 
-                    if event.key == pygame.K_RETURN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+
+                    elif event.key == pygame.K_RETURN:
                         if player_name_input.strip() == "":
                             player_name_input = "Hero"
 
@@ -1263,6 +1394,7 @@ def Game_Loop():
                         Overworld.enter_map(Player, spawn_x, spawn_y)
                         current_map = Overworld
                         game_state = "game"
+                        add_message("Welcome to Estroria!")
 
                     elif event.key == pygame.K_BACKSPACE:
                         player_name_input = player_name_input[:-1]
@@ -1345,7 +1477,7 @@ def Game_Loop():
                             if Player.inventory:
                                 item = Player.inventory[shop_selected_index]
 
-                                if item in [Player.weapon, Player.armour, Player.misc]:
+                                if item.equipped:
                                     add_message("Unequip item first!")
                                 else:
                                     sell_item(shop_selected_index)
@@ -1361,7 +1493,7 @@ def Game_Loop():
 
                 if event.type == pygame.KEYDOWN:
 
-                    if event.key == pygame.K_q:
+                    if event.key == pygame.K_q or event.key == pygame.K_l:
                         game_state = "game"
 
                     elif event.key == pygame.K_UP:
@@ -1378,6 +1510,59 @@ def Game_Loop():
             Draw_Player_stats()
             continue
 
+        if game_state == "inventory":
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+                if event.type == pygame.KEYDOWN:
+
+                    if event.key == pygame.K_q or event.key == pygame.K_e:
+                        game_state = "game"
+                    
+                    elif event.key == pygame.K_UP:
+                        inventory_selected = max(0, inventory_selected - 1)
+                    
+                    elif event.key == pygame.K_DOWN:
+                        inventory_selected = min(len(Player.inventory) - 1, inventory_selected + 1)
+
+                    elif event.key == pygame.K_RETURN:
+                        item = Player.inventory[inventory_selected]
+
+                        if item.type == "potion":
+                            Player.use_potion(item)
+                            Player.inventory.remove(item)
+
+                        else:
+                            if item.equipped:
+                                Player.unequip_item(item)
+                            else:
+                                Player.equip_item(item)
+                    
+                    elif event.key == pygame.K_u:
+                        if Player.weapon:
+                            Player.weapon.equipped = False
+                        if Player.armour:
+                            Player.armour.equipped = False
+                        if Player.misc:
+                            Player.misc.equipped = False
+                        Player.armour = None
+                        Player.weapon = None
+                        Player.misc = None
+
+                    elif event.key == pygame.K_t:
+                        item = Player.inventory[inventory_selected]
+
+                        if item.equipped:
+                            add_message("Unable to Trash Equipped Item!")
+                        else:
+                            Player.inventory.remove(item)
+                            add_message("Item Trashed!")
+
+            Draw_Inventory()
+            continue
+
         # =====================
         # GAME STATE
         # =====================
@@ -1388,31 +1573,7 @@ def Game_Loop():
 
             if event.type == pygame.KEYDOWN:
 
-                if inventory_open:
-
-                    if event.key == pygame.K_ESCAPE or event.key == pygame.K_e:
-                        inventory_open = False
-
-                    elif event.key == pygame.K_UP:
-                        inventory_selected = max(0, inventory_selected - 1)
-
-                    elif event.key == pygame.K_DOWN:
-                        inventory_selected = min(len(Player.inventory)-1, inventory_selected + 1)
-
-                    elif event.key == pygame.K_RETURN:
-                        if Player.inventory:
-                            item = Player.inventory[inventory_selected]
-
-                            if item.type == "potion":
-                                Player.use_potion(item)
-                                Player.inventory.remove(item)
-                            else:
-                                if item in [Player.armour, Player.weapon, Player.misc]:
-                                    Player.unequip_item(item)
-                                else:
-                                    Player.equip_item(item)
-
-                elif confirmation_window:
+                if confirmation_window:
 
                     if event.key == pygame.K_y:
                         spawn_x, spawn_y = find_safe_spawn(overworld_grid)
@@ -1436,7 +1597,7 @@ def Game_Loop():
                     elif event.key == pygame.K_q:
                         running = False
                     elif event.key == pygame.K_e:
-                        inventory_open = True
+                        game_state = "inventory"
                     elif event.key == pygame.K_r:
                         confirmation_window = True
                     elif event.key == pygame.K_l:
@@ -1444,7 +1605,7 @@ def Game_Loop():
                     elif event.key == pygame.K_F5:
                         save_game()
 
-        if not inventory_open and not confirmation_window and not shop_open and not game_state == "stats":
+        if not game_state == "inventory" and not confirmation_window and not shop_open and not game_state == "stats":
             keys = pygame.key.get_pressed()
 
             move_x = 0
@@ -1466,6 +1627,8 @@ def Game_Loop():
                 current_tile = current_map.grid[Player.y][Player.x]
 
                 if current_tile == tree:
+                    delay = FOREST_MOVE_DELAY
+                elif check_inv_full():
                     delay = FOREST_MOVE_DELAY
                 else:
                     delay = MOVE_DELAY
