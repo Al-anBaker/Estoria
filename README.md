@@ -1,18 +1,18 @@
-# AdventureGame
+# Estoria
 Estoria is a Pygame Ascii based rougelike.
 
 
 
 
 # Controls
-L: Opens the Stats Screen
-E: Opens the Inventory
-R: Returns the Player to the surface
-Q: Quit the Game
-F5: Saves the game
-WASD / Arrow Keys: Movement
-Return/Enter: Opens the shop keeper's interface when next to them
-Other controls are shown in game
+* L: Opens the Stats Screen
+* E: Opens the Inventory
+* R: Returns the Player to the surface
+* Q: Quit the Game
+* F5: Saves the game
+* WASD / Arrow Keys: Movement
+* Return/Enter: Opens the shop keeper's interface when next to them
+* Other controls are shown in game
 
 
 
