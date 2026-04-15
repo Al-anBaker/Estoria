@@ -1,37 +1,31 @@
 # AdventureGame
-This is a Pygame Ascii based rougelike Pygame is a requirement.
-There is now basic Procedrally generated levels in the game, after leaving the Overworld.
-To see the walls move around and it will discover based on where you looked
+Estoria is a Pygame Ascii based rougelike.
 
-To enter a level from a tile just walk over it and the Player will be moved into that Level
 
-To access the Shop Interface walk up to a shop keeper and press Enter/Return to open the menu
 
+
+# Controls
 L: Opens the Stats Screen
+E: Opens the Inventory
+R: Returns the Player to the surface
+Q: Quit the Game
+F5: Saves the game
+WASD / Arrow Keys: Movement
+Return/Enter: Opens the shop keeper's interface when next to them
+Other controls are shown in game
 
 
-Am working on Builds for Windows and Mac
 
 # TODO:
 1. Make Combat more fun
-2. Add Towns and Peaceful NPCS to the overworld 
-
+2. Rewrite Map Legend to be better to understand
+3. Add new Windows Build with new changes
 
 # Map Legend:
-* "@" is the Player.
-* "D" is a Demon.
-* "g" is a Goblin.
-* "o" is an Orc.
-* "V" is a Villager.
-* "░" is an Empty Space.
-* "█" is an unmoveable wall.
-* "/" is a Dagger.
-* "!" is a Health Potion
-* "]" is Leather Armour
-* "~" is Water.
-* ">" is a Door.
-* "*" is Cobblestone
-* "T" Forest Tiles
-* "V" is a Village
-* "S" are Shopkeepers
+TODO
+
+# Running from source code
+The file structure is the same as the repository.
+To run the game through the Python file, you need Pygame installed.
+You also need an appropiate Python version (I am using 3.9.6)
 

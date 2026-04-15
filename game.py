@@ -34,7 +34,7 @@ screen = pygame.display.set_mode(
     (MAP_PIXEL_WIDTH, MAP_PIXEL_HEIGHT + UI_HEIGHT)
 )
 
-pygame.display.set_caption("===ASCII DUNGEION===")
+pygame.display.set_caption("===ESTORIA===")
 
 Legendary = (255, 128, 0)
 Rare = (163, 53, 238)
@@ -1176,12 +1176,12 @@ def Draw_Main_Menu():
     screen.fill((0, 0, 0))
 
     # Title
-    title = font.render("===ASCII DUNGEON===", True, (255,255,255))
+    title = font.render("===ESTORIA===", True, (255,255,0))
     title_rect = title.get_rect(center=(MAP_PIXEL_WIDTH // 2, 80))
     screen.blit(title, title_rect)
 
     # Prompt
-    prompt = font.render("Enter Your Hero's Name:", True, (200,200,200))
+    prompt = font.render("Enter The Hero's Name:", True, (200,200,200))
     prompt_rect = prompt.get_rect(center=(MAP_PIXEL_WIDTH // 2, 150))
     screen.blit(prompt, prompt_rect)
 
