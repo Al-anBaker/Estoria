@@ -5,6 +5,7 @@ import random
 import os
 import sys
 import pygame
+import json
 
 #====================
 #Pygame Initalization
@@ -17,7 +18,7 @@ last_move_time = 0
 
 def resource_path(relative_path):
     if hasattr(sys, '_MEIPASS'):
-        return os.path.join(sys._MEIPASS, relative_path)
+        return os.path.join(sys._MEIPASS, relative_path) # type: ignore
     return os.path.join(os.path.abspath("."), relative_path)
 
 font_path = resource_path("Perfect DOS VGA 437.ttf")
@@ -131,7 +132,7 @@ class Item():
 
 class Character():
     #Character Vars
-    def __init__(self, token, name, x, y, NPC, ATK, DEF, HP, GOLD, EXP, current_map=None):
+    def __init__(self, token, name, x, y, NPC, ATK, DEF, HP, GOLD, EXP=0, current_map=None):
 
         #token is how the character looks on the Map
         self.token = token
@@ -161,7 +162,7 @@ class Character():
 
         self.shopkeeper = False
 
-        self.exp = EXP
+        self.EXP = EXP
         self.level = 1
 
         self.upgrade_points = 0
@@ -322,14 +323,43 @@ class GameMap:
             if any(e.x == x and e.y == y for e in self.entities):
                 continue
 
+            level_scale = max(1, dungeon_level)
+
+            atk_bonus = level_scale // 2
+            def_bonus = level_scale // 2
+            hp_bonus = level_scale * 2
+            gold_bonus = level_scale * 2
+            exp_reward = level_scale * 5
+
             roll = random.random()
 
             if roll < 0.6:
-                foe = Character("g", "Goblin", x, y, True, 2, 1, 10, 5, 5)
+                foe = Character(
+                    "g", "Goblin", x, y, True,
+                    2 + atk_bonus,
+                    1 + def_bonus,
+                    10 + hp_bonus,
+                    5 + gold_bonus,
+                    EXP=exp_reward
+                )
             elif roll < 0.9:
-                foe = Character("o", "Orc", x, y, True, 3, 2, 15, 3, 8)
+                foe = Character(
+                    "o", "Orc", x, y, True,
+                    3 + atk_bonus,
+                    2 + def_bonus,
+                    15 + hp_bonus,
+                    3 + gold_bonus,
+                    EXP=exp_reward + 5
+                )
             else:
-                foe = Character("D", "Demon", x, y, True, 5, 3, 20, 5, 10)
+                foe = Character(
+                    "D", "Demon", x, y, True,
+                    5 + atk_bonus,
+                    3 + def_bonus,
+                    20 + hp_bonus,
+                    5 + gold_bonus,
+                    EXP=exp_reward + 10
+                )
 
             self.add_entity(foe)
     
@@ -646,7 +676,6 @@ def generate_town(width=55, height=20):
 
     return grid
 
-
 #Here we initilise the Player with their attrbutes
 Player = Character("@", "Player", 7, 13, False, 3, 2, 20, 0, 0)
 
@@ -661,11 +690,11 @@ def find_safe_spawn(grid):
 #Checks if the player is able to level up
 def check_level_up():
     global exp_cap
-    exp_cap = Player.level * 20 * 1.25
-    if Player.exp >= exp_cap:
+    exp_cap = int(Player.level * 20 * 1.25)
+    if Player.EXP >= exp_cap:
         Player.level += 1
         Player.upgrade_points = Player.level + 1
-        Player.exp -= exp_cap
+        Player.EXP -= exp_cap
         add_message(f"You are now Level: {Player.level}")
 
 
@@ -688,6 +717,8 @@ stick = Item("l", "Stick", 2, 2, 1, item_type="weapon", atk=2)
 current_map = Overworld
 current_map.add_entity(stick)
 
+
+
 #Player Stats and Stat Names are for the Stats screen 
 Player_Stats = [
     Player.ATK, Player.DEF, Player.max_health
@@ -705,6 +736,37 @@ shop_inventory = [
     Item(">", "Spear", 0, 0, 20, item_type="weapon", atk=5),
     Item("!!", "Greater Health Potion", 0, 0, 10, item_type="potion", hp=10)
 ]
+
+def full_towngen():
+            global current_map
+
+            town_grid = generate_town()
+
+            town_map = GameMap("Town", town_grid)
+            
+            town_map.fog_enabled = False
+
+            for _ in range(random.randint(4, 7)):
+                
+                while True:
+                    x = random.randint(1, town_map.width - 2)
+                    y = random.randint(1, town_map.height - 2)
+
+                    if town_grid[y][x] in [grass, stone]:
+                        villager = Character("v", "Villager", x, y, True, 0, 0, 5, 0, 0)
+                        town_map.add_entity(villager)
+                        break
+
+            shopkeeper = Character("S", "Shopkeeper", 27, 10, True, 1, 1, 5, 1, 0)
+            shopkeeper.shopkeeper = True
+
+            town_map.add_entity(shopkeeper)
+
+            town_map.enter_map(Player, 0, 10)
+            
+            current_map = town_map
+
+            add_message("You have arrived in a village")
 
 def buy_item(index):
     
@@ -768,10 +830,10 @@ def Combat():
 
             if entity.HP <= 0:
                 Player.GOLD += entity.GOLD
-                Player.exp += entity.exp
+                Player.EXP += entity.EXP
                 current_map.entities.remove(entity)
                 add_message(f"{entity.name} Defeated You have earned {entity.GOLD} Gold!")
-                add_message(f"You have gained: {entity.exp} XP!")
+                add_message(f"You have gained: {entity.EXP} XP!")
 
             if Player.HP <= 0:
                 game_state = "gameover"
@@ -840,35 +902,112 @@ def Try_Move(character, dx, dy):
                 add_message(f"{Player.name} decends deeper...")
 
         elif tile == town:
+            full_towngen()
 
-            town_grid = generate_town()
+def save_game():
+    data = {
+        "player": {
+            "name": Player.name,
+            "x": Player.x,
+            "y": Player.y,
+            "HP": Player.HP,
+            "ATK": Player.ATK,
+            "DEF": Player.DEF,
+            "GOLD": Player.GOLD,
+            "inventory": [
+                {
+                    "name": item.name,
+                    "token": item.token,
+                    "value": item.value,
+                    "type": item.type,
+                    "atk": item.atk,
+                    "defn": item.defn,
+                    "hp": item.hp,
+                    "vision": item.vision
+                }
+                for item in Player.inventory
+            ],
+            "weapon": Player.weapon.name if Player.weapon else None,
+            "armour": Player.armour.name if Player.armour else None,
+            "misc": Player.misc.name if Player.misc else None
+        },
+        "world": {
+            "map": current_map.name,
+            "dungeon_level": dungeon_level
+        }
+    }
 
+    with open("savegame.json", "w") as f:
+        json.dump(data, f, indent=4)
 
-            town_map = GameMap("Town", town_grid)
-            
-            town_map.fog_enabled = False
+    add_message("Game Saved!")
 
-            for _ in range(random.randint(4, 7)):
-                
-                while True:
-                    x = random.randint(1, town_map.width - 2)
-                    y = random.randint(1, town_map.height - 2)
+def load_game():
+    global dungeon_level, current_map
 
-                    if town_grid[y][x] in [grass, stone]:
-                        villager = Character("v", "Villager", x, y, True, 0, 0, 5, 0, 0)
-                        town_map.add_entity(villager)
-                        break
+    try:
+        with open("savegame.json", "r") as f:
+            data = json.load(f)
 
-            shopkeeper = Character("S", "Shopkeeper", 27, 10, True, 1, 1, 5, 1, 0)
-            shopkeeper.shopkeeper = True
+    except:
+        add_message("No save file found!")
+        return False
+    
+    p = data["player"]
 
-            town_map.add_entity(shopkeeper)
+    Player.name = p["name"]
+    Player.x = p["x"]
+    Player.y = p["y"]
+    Player.HP = p["HP"]
+    Player.ATK = p["ATK"]
+    Player.DEF = p["DEF"]
+    Player.GOLD = p["GOLD"]
 
-            town_map.enter_map(Player, 0, 10)
-            
-            current_map = town_map
+    Player.inventory.clear()
 
-            add_message("You have arrived in a village")
+    for item_data in p["inventory"]:
+        item = Item(
+            item_data["token"],
+            item_data["name"],
+            Player.x,
+            Player.y,
+            item_data["value"],
+            item_data["type"],
+            atk=item_data["atk"],
+            defn=item_data["defn"],
+            hp=item_data["hp"],
+            vision=item_data["vision"]
+        )
+        Player.inventory.append(item)
+
+    Player.weapon = None
+    Player.armour = None
+    Player.misc = None
+
+    for item in Player.inventory:
+        if item.name == p["weapon"]:
+            Player.equip_item(item)
+        elif item.name == p["armour"]:
+            Player.equip_item(item)
+        elif item.name == p["misc"]:
+            Player.equip_item(item)
+
+    dungeon_level = data["world"]["dungeon_level"]
+
+    map_name = data["world"]["map"]
+
+    if map_name == "Overworld":
+        current_map = Overworld
+    elif map_name == "Town":
+        full_towngen()
+    elif map_name.startswith("Dungeon"):
+        current_map(map_name, width=55, height=20)
+
+    current_map.enter_map(Player, Player.x, Player.y)
+
+    add_message("Game Loaded!")
+    return True
+
 
 #This is to move the NPC's
 def Foe_Move():
@@ -948,7 +1087,7 @@ def Draw_Game():
         2
     )
 
-    stats_text = f"{Player.name} | LEVEL: {Player.level} | ATK: {Player.ATK} | DEF: {Player.DEF} | HP: {Player.HP} | GOLD: {Player.GOLD} | XP: {Player.exp} | Current Level: {current_map.name}"
+    stats_text = f"{Player.name} | LEVEL: {Player.level} | ATK: {Player.ATK} | DEF: {Player.DEF} | HP: {Player.HP} | GOLD: {Player.GOLD} | XP: {Player.EXP} | Current Level: {current_map.name}"
     stats_surface = font.render(stats_text, True, (255, 255, 255))
     screen.blit(stats_surface, (10, MAP_PIXEL_HEIGHT + 5))
 
@@ -982,7 +1121,7 @@ def Draw_Main_Menu():
     screen.blit(name_surface, name_rect)
 
     # Info
-    info = font.render("Press ENTER to Start", True, (150,150,150))
+    info = font.render("Enter = New Game | F6 = Load Game", True, (150,150,150))
     info_rect = info.get_rect(center=(MAP_PIXEL_WIDTH // 2, 240))
     screen.blit(info, info_rect)
 
@@ -1067,10 +1206,10 @@ def Draw_Player_stats():
     player_level = font.render(f"Level: {Player.level}", True, (200, 200, 200))
     screen.blit(player_level, (left_x, 140))
 
-    xpcap = font.render(f"XP needed to Level Up: {exp_cap - Player.exp}", True, (200, 200, 200))
+    xpcap = font.render(f"XP needed to Level Up: {exp_cap - Player.EXP}", True, (200, 200, 200))
     screen.blit(xpcap, (left_x, 160))
 
-    player_exp = font.render(f"XP: {Player.exp}", True, (200, 200, 200))
+    player_exp = font.render(f"XP: {Player.EXP}", True, (200, 200, 200))
     screen.blit(player_exp, (left_x, 180))
 
     upgrade_points = font.render(f"Upgrade Points: {Player.upgrade_points}", True, (200, 200, 200))
@@ -1127,6 +1266,9 @@ def Game_Loop():
 
                     elif event.key == pygame.K_BACKSPACE:
                         player_name_input = player_name_input[:-1]
+                    elif event.key == pygame.K_F6:
+                        if load_game():
+                            game_state = "game"
 
                     else:
                         if len(player_name_input) < 12 and event.unicode.isprintable():
@@ -1156,7 +1298,7 @@ def Game_Loop():
                         Player.misc = None
                         Player.ATK = 3
                         Player.DEF = 2
-                        Player.exp = 0
+                        Player.EXP = 0
                         Player.level = 1
                         Player.max_health = 20
 
@@ -1298,7 +1440,9 @@ def Game_Loop():
                     elif event.key == pygame.K_r:
                         confirmation_window = True
                     elif event.key == pygame.K_l:
-                        game_state = "stats"        
+                        game_state = "stats"      
+                    elif event.key == pygame.K_F5:
+                        save_game()
 
         if not inventory_open and not confirmation_window and not shop_open and not game_state == "stats":
             keys = pygame.key.get_pressed()
