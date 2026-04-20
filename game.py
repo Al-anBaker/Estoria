@@ -1008,6 +1008,10 @@ def save_game():
             "ATK": Player.ATK,
             "DEF": Player.DEF,
             "GOLD": Player.GOLD,
+            "Level": Player.level,
+            "EXP": Player.EXP,
+            "max_health": Player.max_health,
+            "upgrade_points": Player.upgrade_points,
             "inventory": [
                 {
                     "name": item.name,
@@ -1056,6 +1060,10 @@ def load_game():
     Player.ATK = p["ATK"]
     Player.DEF = p["DEF"]
     Player.GOLD = p["GOLD"]
+    Player.level = p["Level"]
+    Player.EXP = p["EXP"]
+    Player.max_health = p["max_health"]
+    Player.upgrade_points = p["upgrade_points"]
 
     Player.inventory.clear()
 
